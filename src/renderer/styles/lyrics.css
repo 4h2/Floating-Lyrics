@@ -52,7 +52,9 @@
 }
 
 .lyrics-spacer-top {
-  min-height: 12px;
+  /* Needed for centering: allows early lines to scroll to ~40% from top.
+     Lines 0-2 will be slightly above center, which looks natural. */
+  min-height: 25%;
 }
 
 .lyrics-spacer-bottom {

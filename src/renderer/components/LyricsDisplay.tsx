@@ -273,8 +273,8 @@ export const LyricsDisplay: React.FC = () => {
       const container = containerRef.current
       const elRect = el.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
-      // Position the current line at ~38% from the top (slightly above center)
-      const target = container.scrollTop + (elRect.top - containerRect.top) - containerRect.height * 0.38
+      // Position the current line at ~40% from the top (visual center)
+      const target = container.scrollTop + (elRect.top - containerRect.top) - containerRect.height * 0.40
       springScrollTo(target)
     }
   }, [springScrollTo])
@@ -285,6 +285,52 @@ export const LyricsDisplay: React.FC = () => {
       scrollToLine(syncState.currentIndex)
     }
   }, [syncState?.currentIndex, scrollToLine, userScrolled])
+
+  // ─── Initial Scroll Fix ────────────────────────────────────────────
+  // When the app opens mid-song, lyrics load and syncState arrives but
+  // the line refs haven't been populated yet (DOM hasn't committed).
+  // This retry ensures we scroll to the correct line once refs exist.
+  const hasInitialScrolled = useRef(false)
+
+  useEffect(() => {
+    // Reset on new lyrics
+    if (lyrics) {
+      hasInitialScrolled.current = false
+    }
+  }, [lyrics])
+
+  useEffect(() => {
+    if (
+      hasInitialScrolled.current ||
+      !lyrics ||
+      lyrics.type !== 'synced' ||
+      !syncState ||
+      syncState.currentIndex < 0 ||
+      userScrolled
+    ) return
+
+    // Try immediately
+    const el = lineRefs.current.get(syncState.currentIndex)
+    if (el) {
+      scrollToLine(syncState.currentIndex)
+      hasInitialScrolled.current = true
+      return
+    }
+
+    // Refs not ready — retry after next frame + small delay
+    const raf = requestAnimationFrame(() => {
+      const timer = setTimeout(() => {
+        if (syncState.currentIndex >= 0 && lineRefs.current.get(syncState.currentIndex)) {
+          scrollToLine(syncState.currentIndex)
+          hasInitialScrolled.current = true
+        }
+      }, 100)
+      // Cleanup
+      return () => clearTimeout(timer)
+    })
+
+    return () => cancelAnimationFrame(raf)
+  }, [lyrics, syncState?.currentIndex, scrollToLine, userScrolled])
 
   // ─── Loading State ─────────────────────────
   if (status === 'loading') {
