@@ -1,6 +1,7 @@
 // ─── Lyrics Sync Engine ──────────────────────────────────────────────────────
 // Calculates which lyric line is current based on playback progress.
 // Handles pause, seek, offset, and jitter smoothing. Runs at 60fps via rAF.
+// Emits state only when values change meaningfully (smart diffing).
 
 import type { SyncedLyrics, SyncedLyricsLine, LyricsSyncState } from '../types/lyrics'
 
@@ -9,8 +10,12 @@ export class LyricsSyncEngine {
   private offsetMs: number = 0
   private isPlaying: boolean = false
   private progressMs: number = 0
-  private lastReceivedAt: number = 0 // performance.now() when last progress was received
+  private lastReceivedAt: number = 0
   private animFrameId: number | null = null
+
+  // Smart diffing — only emit when state actually changes
+  private lastEmittedIndex: number = -2 // -2 = never emitted
+  private lastEmittedProgress: number = -1
 
   public onStateChange: ((state: LyricsSyncState) => void) | null = null
 
@@ -19,7 +24,9 @@ export class LyricsSyncEngine {
    */
   setLyrics(lyrics: SyncedLyrics | null): void {
     this.lyrics = lyrics
-    this.emitState()
+    this.lastEmittedIndex = -2
+    this.lastEmittedProgress = -1
+    this.emitState(true)
   }
 
   /**
@@ -34,7 +41,7 @@ export class LyricsSyncEngine {
       this.startLoop()
     } else if (!isPlaying) {
       this.stopLoop()
-      this.emitState()
+      this.emitState(true) // Force emit on pause
     }
   }
 
@@ -43,6 +50,7 @@ export class LyricsSyncEngine {
    */
   setOffset(ms: number): void {
     this.offsetMs = ms
+    this.emitState(true) // Force re-emit with new offset
   }
 
   /**
@@ -58,7 +66,7 @@ export class LyricsSyncEngine {
   private startLoop(): void {
     if (this.animFrameId) return
     const tick = () => {
-      this.emitState()
+      this.emitState(false)
       this.animFrameId = requestAnimationFrame(tick)
     }
     this.animFrameId = requestAnimationFrame(tick)
@@ -82,7 +90,7 @@ export class LyricsSyncEngine {
     return this.progressMs + elapsed
   }
 
-  private emitState(): void {
+  private emitState(force: boolean): void {
     if (!this.lyrics || !this.onStateChange) return
 
     const lines = this.lyrics.lines
@@ -91,11 +99,10 @@ export class LyricsSyncEngine {
     const currentProgress = this.getInterpolatedProgress() + this.offsetMs
     const currentIndex = this.findCurrentLineIndex(lines, currentProgress)
 
-    const currentLine = currentIndex >= 0 ? lines[currentIndex] : null
-
-    // Calculate line progress (0..1)
+    // Calculate line progress (0..1) for the breathing glow
     let lineProgress = 0
-    if (currentLine) {
+    if (currentIndex >= 0) {
+      const currentLine = lines[currentIndex]
       const lineStart = currentLine.startTimeMs
       const lineEnd = currentLine.endTimeMs || (lines[currentIndex + 1]?.startTimeMs || lineStart + 3000)
       const lineDuration = lineEnd - lineStart
@@ -103,6 +110,19 @@ export class LyricsSyncEngine {
         lineProgress = Math.max(0, Math.min(1, (currentProgress - lineStart) / lineDuration))
       }
     }
+
+    // Smart diffing: only emit if something changed meaningfully
+    // Index changes are always emitted. Progress changes are batched (threshold 0.01 = ~1%)
+    if (!force) {
+      const indexChanged = currentIndex !== this.lastEmittedIndex
+      const progressDelta = Math.abs(lineProgress - this.lastEmittedProgress)
+      if (!indexChanged && progressDelta < 0.015) return
+    }
+
+    this.lastEmittedIndex = currentIndex
+    this.lastEmittedProgress = lineProgress
+
+    const currentLine = currentIndex >= 0 ? lines[currentIndex] : null
 
     // Gather context lines
     const previousLines = currentIndex > 0

@@ -11,6 +11,7 @@ export interface ThemeColors {
   textSecondary: string
   accent: string
   glow: string
+  glowStrong: string
   gradientStart: string
   gradientEnd: string
 }
@@ -21,7 +22,8 @@ const darkTheme: ThemeColors = {
   textPrimary: '#ffffff',
   textSecondary: 'rgba(255,255,255,0.5)',
   accent: '#8b5cf6',
-  glow: 'rgba(139,92,246,0.4)',
+  glow: 'rgba(139,92,246,0.5)',
+  glowStrong: 'rgba(139,92,246,0.7)',
   gradientStart: '#0a0a0f',
   gradientEnd: '#1a1025',
 }
@@ -32,7 +34,8 @@ const lightTheme: ThemeColors = {
   textPrimary: '#1a1a2e',
   textSecondary: 'rgba(26,26,46,0.5)',
   accent: '#7c3aed',
-  glow: 'rgba(124,58,237,0.3)',
+  glow: 'rgba(124,58,237,0.35)',
+  glowStrong: 'rgba(124,58,237,0.55)',
   gradientStart: '#f0eef8',
   gradientEnd: '#e8e0f0',
 }
@@ -88,6 +91,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     root.style.setProperty('--text-secondary', colors.textSecondary)
     root.style.setProperty('--accent', colors.accent)
     root.style.setProperty('--glow', colors.glow)
+    root.style.setProperty('--glow-strong', colors.glowStrong)
     root.style.setProperty('--gradient-start', colors.gradientStart)
     root.style.setProperty('--gradient-end', colors.gradientEnd)
   },
@@ -133,13 +137,17 @@ async function extractColors(imageUrl: string): Promise<ThemeColors> {
         const gradientStart = `hsl(${hsl[0]}, ${Math.min(hsl[1] * 100, 35)}%, 8%)`
         const gradientEnd = `hsl(${hsl2[0]}, ${Math.min(hsl2[1] * 100, 30)}%, 15%)`
 
+        const glowBase = accent.replace(')', ', 0.5)').replace('hsl(', 'hsla(')
+        const glowStrong = accent.replace(')', ', 0.7)').replace('hsl(', 'hsla(')
+
         resolve({
           bgPrimary,
           bgSecondary,
           textPrimary: '#ffffff',
           textSecondary: 'rgba(255,255,255,0.5)',
           accent,
-          glow: accent.replace(')', ', 0.4)').replace('hsl(', 'hsla('),
+          glow: glowBase,
+          glowStrong,
           gradientStart,
           gradientEnd,
         })

@@ -1,5 +1,5 @@
 /* ─── Lyrics Display ─────────────────────────────────────────────────────── */
-/* Apple Music-inspired synced lyrics with smooth animations */
+/* Apple Music-inspired synced lyrics with premium glow effects */
 
 .lyrics-container {
   flex: 1;
@@ -9,81 +9,78 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  scroll-behavior: smooth;
+
+  /* Fade mask — lines dissolve at top and bottom edges */
   mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    black 8%,
-    black 85%,
+    rgba(0, 0, 0, 0.3) 4%,
+    black 12%,
+    black 80%,
+    rgba(0, 0, 0, 0.3) 94%,
     transparent 100%
   );
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0%,
-    black 8%,
-    black 85%,
+    rgba(0, 0, 0, 0.3) 4%,
+    black 12%,
+    black 80%,
+    rgba(0, 0, 0, 0.3) 94%,
     transparent 100%
   );
 }
 
+/* Hide scrollbar — the spring scroll makes it unnecessary */
 .lyrics-container::-webkit-scrollbar {
   display: none;
 }
 
-/* Spacer to center first/last lines */
+/* Spacers to center the first and last lines */
 .lyrics-spacer {
   flex-shrink: 0;
+  pointer-events: none;
 }
 
 .lyrics-spacer-top {
-  min-height: 30%;
+  min-height: 35%;
 }
 
 .lyrics-spacer-bottom {
-  min-height: 50%;
+  min-height: 55%;
 }
 
 /* ─── Lyric Line ─────────────────────────────────────────────────────────── */
+/* Each line is animated by Framer Motion spring physics.                    */
+/* CSS handles the static properties; Framer handles dynamic ones.          */
 
 .lyric-line {
-  padding: 6px 0;
+  padding: 8px 4px;
   cursor: default;
-  transition:
-    opacity 0.4s var(--ease-out),
-    transform 0.4s var(--ease-out),
-    filter 0.4s var(--ease-out);
-  will-change: transform, opacity, filter;
   transform-origin: left center;
-  line-height: 1.4;
+  line-height: 1.45;
   font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-/* ── Past Lines ─────────────────────────── */
-.lyric-line.past {
-  opacity: 0.25;
-  transform: scale(0.95);
-  filter: blur(0.5px);
-}
-
-/* ── Current Line ───────────────────────── */
-.lyric-line.current {
-  opacity: 1;
-  transform: scale(1);
-  filter: blur(0);
+  letter-spacing: -0.015em;
   color: var(--text-primary);
-  text-shadow: 0 0 40px var(--glow), 0 0 80px var(--glow);
-  font-weight: 800;
+  position: relative;
+
+  /* Smooth font-size transitions for the current line bump */
+  transition:
+    font-size 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    font-weight 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    text-shadow 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Prevent layout shifts from glow overflow */
+  padding-right: 8px;
 }
 
-/* ── Future Lines ───────────────────────── */
-.lyric-line.future {
-  opacity: 0.35;
-  transform: scale(0.95);
-}
+/* ── Active Line — Premium Glow ────────────────── */
+/* The multi-layer text-shadow glow is set inline by JS (breathing effect). */
+/* These CSS properties handle the non-dynamic parts.                       */
 
-.lyric-line.future-far {
-  opacity: 0.15;
+.lyric-line-active {
+  color: var(--text-primary);
+  z-index: 1;
 }
 
 /* ─── Plain Lyrics ───────────────────────────────────────────────────────── */
@@ -123,6 +120,12 @@
   font-size: 48px;
   opacity: 0.3;
   margin-bottom: var(--space-sm);
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
 .lyrics-state-title {

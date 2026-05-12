@@ -13,7 +13,8 @@
   --text-primary: #ffffff;
   --text-secondary: rgba(255, 255, 255, 0.5);
   --accent: #8b5cf6;
-  --glow: rgba(139, 92, 246, 0.4);
+  --glow: rgba(139, 92, 246, 0.5);
+  --glow-strong: rgba(139, 92, 246, 0.7);
   --gradient-start: #0a0a0f;
   --gradient-end: #1a1025;
 
@@ -137,9 +138,9 @@ body {
   width: 140%;
   height: 140%;
   object-fit: cover;
-  filter: blur(60px) saturate(1.5) brightness(0.3);
-  opacity: 0.6;
-  transition: opacity 0.8s var(--ease-out);
+  filter: blur(60px) saturate(1.6) brightness(0.3);
+  opacity: 0.65;
+  transition: opacity 1.2s var(--ease-out);
   transform: scale(1.1);
 }
 
