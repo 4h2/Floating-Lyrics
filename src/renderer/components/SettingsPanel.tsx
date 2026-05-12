@@ -79,15 +79,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
 
           <div className="setting-row">
             <div className="setting-row-header">
-              <span className="setting-label">Album Art Background</span>
-              <button
-                className={`setting-toggle ${settings.albumArtBackground ? 'active' : ''}`}
-                onClick={() => settings.updateSetting('albumArtBackground', !settings.albumArtBackground)}
-              >
-                <div className="setting-toggle-knob" />
-              </button>
+              <span className="setting-label">Album Art Presence</span>
+              <span className="setting-value">
+                {settings.albumArtPresence === 0 ? 'Off' : `${settings.albumArtPresence}%`}
+              </span>
             </div>
-            <div className="setting-hint">Show blurred album cover as window background</div>
+            <input
+              type="range" className="setting-slider"
+              min={0} max={100} step={5}
+              value={settings.albumArtPresence}
+              onChange={e => settings.updateSetting('albumArtPresence', Number(e.target.value))}
+            />
+            <div className="setting-hint">Controls blur and visibility of album cover background</div>
           </div>
         </div>
 

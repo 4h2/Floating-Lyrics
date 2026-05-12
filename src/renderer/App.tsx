@@ -228,14 +228,19 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      {/* Background blur layer */}
+      {/* Background blur layer — presence controls blur/brightness/opacity */}
       <div className="app-bg">
-        {settings.albumArtBackground && player.track?.albumArtUrl && (
+        {settings.albumArtPresence > 0 && player.track?.albumArtUrl && (
           <img
             className="app-bg-image"
             src={player.track.albumArtUrl}
             alt=""
             crossOrigin="anonymous"
+            style={{
+              // 0 = max blur (80px), 100 = min blur (5px)
+              filter: `blur(${80 - settings.albumArtPresence * 0.75}px) saturate(${1.2 + settings.albumArtPresence * 0.01}) brightness(${0.2 + settings.albumArtPresence * 0.003})`,
+              opacity: 0.3 + settings.albumArtPresence * 0.006,
+            }}
           />
         )}
         <div className="app-bg-overlay" />

@@ -138,9 +138,10 @@ body {
   width: 150%;
   height: 150%;
   object-fit: cover;
-  filter: blur(50px) saturate(1.8) brightness(0.35);
-  opacity: 0.75;
-  transition: opacity 1.2s var(--ease-out);
+  /* filter & opacity are set inline by albumArtPresence slider */
+  transition:
+    opacity 1.2s var(--ease-out),
+    filter 0.5s var(--ease-out);
   transform: scale(1.15);
 }
 

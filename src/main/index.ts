@@ -41,7 +41,7 @@ interface AppSettings {
   windowBounds: { x: number; y: number; width: number; height: number } | null
   mode: 'compact' | 'expanded'
   globalShortcut: string
-  albumArtBackground: boolean
+  albumArtPresence: number
 }
 
 const defaultSettings: AppSettings = {
@@ -55,7 +55,7 @@ const defaultSettings: AppSettings = {
   windowBounds: null,
   mode: 'expanded',
   globalShortcut: 'Ctrl+Shift+L',
-  albumArtBackground: true,
+  albumArtPresence: 70,
 }
 
 function loadSettings(): AppSettings {

@@ -12,7 +12,8 @@ export interface AppSettings {
   musixmatchEnabled: boolean
   lrcFolderPath: string
   mode: 'compact' | 'expanded'
-  albumArtBackground: boolean
+  /** 0 = hidden, 100 = vivid/sharp. Controls blur, brightness, opacity of album art bg */
+  albumArtPresence: number
 }
 
 const defaults: AppSettings = {
@@ -24,7 +25,7 @@ const defaults: AppSettings = {
   musixmatchEnabled: false,
   lrcFolderPath: '',
   mode: 'expanded',
-  albumArtBackground: true,
+  albumArtPresence: 70,
 }
 
 interface SettingsState extends AppSettings {
