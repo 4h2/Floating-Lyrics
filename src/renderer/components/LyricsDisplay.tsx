@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useCallback, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useLyricsStore } from '../stores/lyricsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 
@@ -12,10 +12,12 @@ import { useSettingsStore } from '../stores/settingsStore'
  * - Per-line Framer Motion spring animations (not layout)
  * - Line-progress "breathing" glow on current line
  * - Multi-layered text-shadow for premium depth
+ * - User scroll detection with sync button
  */
 
 // ─── Spring Scroll Hook ──────────────────────────────────────────────────────
-// Replaces browser scrollTo with smooth exponential ease-out scrolling.
+// Returns { scrollTo, isAnimating } — we need isAnimating to distinguish
+// programmatic scrolls from user scrolls.
 
 function useSpringScroll(containerRef: React.RefObject<HTMLDivElement | null>) {
   const targetRef = useRef(0)
@@ -29,8 +31,6 @@ function useSpringScroll(containerRef: React.RefObject<HTMLDivElement | null>) {
 
     const diff = targetRef.current - currentRef.current
 
-    // Spring-like interpolation — lower factor = smoother/slower
-    // 0.065 gives a nice heavy, organic feel
     if (Math.abs(diff) < 0.5) {
       currentRef.current = targetRef.current
       container.scrollTop = targetRef.current
@@ -59,12 +59,10 @@ function useSpringScroll(containerRef: React.RefObject<HTMLDivElement | null>) {
     }
   }, [])
 
-  return scrollTo
+  return { scrollTo, isAnimating: isAnimatingRef }
 }
 
 // ─── Visual Weight Calculation ───────────────────────────────────────────────
-// Compute per-line appearance based on distance from current line.
-// Creates the Apple Music "gradient of focus" effect.
 
 interface LineVisuals {
   opacity: number
@@ -78,10 +76,8 @@ function computeLineVisuals(
   index: number,
   currentIndex: number,
   lineProgress: number,
-  totalLines: number
 ): LineVisuals {
   if (currentIndex < 0) {
-    // No active line — all lines dim
     return { opacity: 0.3, scale: 0.95, blur: 0, glowIntensity: 0, y: 0 }
   }
 
@@ -89,44 +85,31 @@ function computeLineVisuals(
   const absDistance = Math.abs(distance)
 
   if (absDistance === 0) {
-    // ── CURRENT LINE ──
-    // Glow breathes with line progress (peaks at ~60%, fades toward end)
     const breathCurve = Math.sin(lineProgress * Math.PI * 0.85)
     return {
       opacity: 1,
-      scale: 1.0,
+      // Scale is the ONLY size change — no fontSize change = no text reflow
+      scale: 1.05,
       blur: 0,
-      glowIntensity: 0.6 + breathCurve * 0.4, // 0.6 → 1.0 → 0.6
+      glowIntensity: 0.6 + breathCurve * 0.4,
       y: 0,
     }
   }
 
-  // ── NEARBY LINES (graduated falloff) ──
-  // Smooth exponential decay — not linear!
   const falloff = Math.exp(-absDistance * 0.55)
-
-  // Past lines fade more than future lines (Apple Music pattern)
   const pastBias = distance < 0 ? 0.85 : 1.0
 
-  const opacity = Math.max(0.08, falloff * 0.55 * pastBias)
-  const scale = Math.max(0.92, 1.0 - absDistance * 0.015)
-  const blur = Math.min(1.5, absDistance * 0.25)
-
-  // Subtle vertical offset — lines "push away" from current
-  const y = distance < 0 ? -absDistance * 0.5 : absDistance * 0.3
-
   return {
-    opacity,
-    scale,
-    blur,
+    opacity: Math.max(0.08, falloff * 0.55 * pastBias),
+    scale: Math.max(0.92, 1.0 - absDistance * 0.015),
+    blur: Math.min(1.5, absDistance * 0.25),
     glowIntensity: 0,
-    y,
+    y: distance < 0 ? -absDistance * 0.5 : absDistance * 0.3,
   }
 }
 
 // ─── Spring Configs ──────────────────────────────────────────────────────────
 
-// Organic, heavy spring — feels like the text has weight
 const lineSpring = {
   type: 'spring' as const,
   stiffness: 80,
@@ -135,7 +118,6 @@ const lineSpring = {
   restDelta: 0.001,
 }
 
-// Faster spring for opacity (so glow appears before movement finishes)
 const opacitySpring = {
   type: 'spring' as const,
   stiffness: 100,
@@ -143,29 +125,15 @@ const opacitySpring = {
   mass: 0.8,
 }
 
-// Very soft spring for glow (slow bloom/fade)
-const glowSpring = {
-  type: 'spring' as const,
-  stiffness: 50,
-  damping: 18,
-  mass: 1.5,
-}
-
 // ─── Glow Renderer ──────────────────────────────────────────────────────────
-// Multi-layered text-shadow for premium Apple Music depth.
 
 function buildGlowShadow(intensity: number, color: string): string {
   if (intensity <= 0.01) return 'none'
-
   const i = intensity
   return [
-    // Inner glow — tight, bright
     `0 0 ${8 * i}px ${color}`,
-    // Mid glow — softer spread
     `0 0 ${25 * i}px ${color}`,
-    // Outer glow — wide, atmospheric
     `0 0 ${60 * i}px ${color}`,
-    // Extra halo for that premium "bloom"
     `0 0 ${100 * i}px ${color}`,
   ].join(', ')
 }
@@ -178,7 +146,6 @@ interface LyricLineProps {
   currentIndex: number
   lineProgress: number
   fontSize: number
-  totalLines: number
   glowColor: string
 }
 
@@ -188,10 +155,9 @@ const LyricLine = React.memo<LyricLineProps>(({
   currentIndex,
   lineProgress,
   fontSize,
-  totalLines,
   glowColor,
 }) => {
-  const v = computeLineVisuals(index, currentIndex, lineProgress, totalLines)
+  const v = computeLineVisuals(index, currentIndex, lineProgress)
   const isCurrent = index === currentIndex
 
   return (
@@ -210,8 +176,10 @@ const LyricLine = React.memo<LyricLineProps>(({
         filter: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] },
       }}
       style={{
-        fontSize: isCurrent ? fontSize * 1.08 : fontSize,
-        fontWeight: isCurrent ? 800 : 600,
+        // FIXED: fontSize is CONSTANT for all lines — no reflow!
+        // The active line uses transform: scale() for emphasis instead.
+        fontSize,
+        fontWeight: 700,
         textShadow: buildGlowShadow(v.glowIntensity, glowColor),
         willChange: isCurrent ? 'transform, opacity, filter' : 'auto',
       }}
@@ -230,8 +198,43 @@ export const LyricsDisplay: React.FC = () => {
   const fontSize = useSettingsStore(s => s.fontSize)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map())
-  const springScroll = useSpringScroll(containerRef)
+  const { scrollTo: springScrollTo, isAnimating } = useSpringScroll(containerRef)
   const prevLyricsRef = useRef<unknown>(null)
+
+  // ─── User Scroll Detection ─────────────────────────────────────────
+  // When the user scrolls manually (not our spring scroll), pause auto-scroll
+  // and show a "sync" button.
+  const [userScrolled, setUserScrolled] = useState(false)
+  const userScrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleScroll = useCallback(() => {
+    // If our spring animation is driving the scroll, ignore
+    if (isAnimating.current) return
+
+    setUserScrolled(true)
+
+    // Auto-resume after 5 seconds of no scrolling
+    if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current)
+    userScrollTimeout.current = setTimeout(() => {
+      setUserScrolled(false)
+    }, 5000)
+  }, [isAnimating])
+
+  const handleSyncClick = useCallback(() => {
+    setUserScrolled(false)
+    if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current)
+    // Immediately scroll to current line
+    if (syncState && syncState.currentIndex >= 0) {
+      scrollToLine(syncState.currentIndex)
+    }
+  }, [syncState?.currentIndex])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current)
+    }
+  }, [])
 
   // Read CSS glow color from theme
   const glowColor = useMemo(() => {
@@ -243,12 +246,11 @@ export const LyricsDisplay: React.FC = () => {
   useEffect(() => {
     if (lyrics && lyrics !== prevLyricsRef.current) {
       prevLyricsRef.current = lyrics
-      // Instantly jump to top (no animation — the first line will spring-scroll naturally)
       if (containerRef.current) {
         containerRef.current.scrollTop = 0
       }
-      // Clear line refs for the new set of lines
       lineRefs.current.clear()
+      setUserScrolled(false)
     }
   }, [lyrics])
 
@@ -259,16 +261,18 @@ export const LyricsDisplay: React.FC = () => {
       const container = containerRef.current
       const elRect = el.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
-      const target = container.scrollTop + (elRect.top - containerRect.top) - containerRect.height * 0.35
-      springScroll(target)
+      // Position the current line at ~38% from the top (slightly above center)
+      const target = container.scrollTop + (elRect.top - containerRect.top) - containerRect.height * 0.38
+      springScrollTo(target)
     }
-  }, [springScroll])
+  }, [springScrollTo])
 
+  // Auto-scroll to current line (only if user hasn't scrolled away)
   useEffect(() => {
-    if (syncState && syncState.currentIndex >= 0) {
+    if (syncState && syncState.currentIndex >= 0 && !userScrolled) {
       scrollToLine(syncState.currentIndex)
     }
-  }, [syncState?.currentIndex, scrollToLine])
+  }, [syncState?.currentIndex, scrollToLine, userScrolled])
 
   // ─── Loading State ─────────────────────────
   if (status === 'loading') {
@@ -319,27 +323,52 @@ export const LyricsDisplay: React.FC = () => {
     const lineProgress = syncState?.lineProgress ?? 0
 
     return (
-      <div className="lyrics-container" ref={containerRef}>
-        <div className="lyrics-spacer lyrics-spacer-top" />
+      <div className="lyrics-wrapper">
+        <div
+          className="lyrics-container"
+          ref={containerRef}
+          onScroll={handleScroll}
+        >
+          <div className="lyrics-spacer lyrics-spacer-top" />
 
-        {lyrics.lines.map((line, i) => (
-          <div
-            key={i}
-            ref={el => { if (el) lineRefs.current.set(i, el) }}
-          >
-            <LyricLine
-              text={line.text}
-              index={i}
-              currentIndex={currentIndex}
-              lineProgress={lineProgress}
-              fontSize={fontSize}
-              totalLines={lyrics.lines.length}
-              glowColor={glowColor}
-            />
-          </div>
-        ))}
+          {lyrics.lines.map((line, i) => (
+            <div
+              key={i}
+              ref={el => { if (el) lineRefs.current.set(i, el) }}
+            >
+              <LyricLine
+                text={line.text}
+                index={i}
+                currentIndex={currentIndex}
+                lineProgress={lineProgress}
+                fontSize={fontSize}
+                glowColor={glowColor}
+              />
+            </div>
+          ))}
 
-        <div className="lyrics-spacer lyrics-spacer-bottom" />
+          <div className="lyrics-spacer lyrics-spacer-bottom" />
+        </div>
+
+        {/* Sync Button — appears when user scrolls away */}
+        <AnimatePresence>
+          {userScrolled && currentIndex >= 0 && (
+            <motion.button
+              className="lyrics-sync-btn"
+              onClick={handleSyncClick}
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="7 13 12 18 17 13" />
+                <line x1="12" y1="2" x2="12" y2="18" />
+              </svg>
+              Sync
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     )
   }

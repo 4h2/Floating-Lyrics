@@ -1,6 +1,15 @@
 /* ─── Lyrics Display ─────────────────────────────────────────────────────── */
 /* Apple Music-inspired synced lyrics with premium glow effects */
 
+/* Wrapper for lyrics + sync button positioning */
+.lyrics-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .lyrics-container {
   flex: 1;
   overflow-y: auto;
@@ -31,19 +40,19 @@
   );
 }
 
-/* Hide scrollbar — the spring scroll makes it unnecessary */
+/* Hide scrollbar */
 .lyrics-container::-webkit-scrollbar {
   display: none;
 }
 
-/* Spacers to center the first and last lines */
+/* Spacers — SMALL top spacer, generous bottom */
 .lyrics-spacer {
   flex-shrink: 0;
   pointer-events: none;
 }
 
 .lyrics-spacer-top {
-  min-height: 35%;
+  min-height: 12px;
 }
 
 .lyrics-spacer-bottom {
@@ -51,36 +60,70 @@
 }
 
 /* ─── Lyric Line ─────────────────────────────────────────────────────────── */
-/* Each line is animated by Framer Motion spring physics.                    */
-/* CSS handles the static properties; Framer handles dynamic ones.          */
 
 .lyric-line {
   padding: 8px 4px;
   cursor: default;
   transform-origin: left center;
   line-height: 1.45;
-  font-weight: 600;
+  /* fontWeight is set inline as constant 700 — never changes */
   letter-spacing: -0.015em;
   color: var(--text-primary);
   position: relative;
 
-  /* Smooth font-size transitions for the current line bump */
-  transition:
-    font-size 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    font-weight 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    text-shadow 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Only text-shadow transitions via CSS (glow breathing) */
+  transition: text-shadow 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Prevent layout shifts from glow overflow */
   padding-right: 8px;
 }
 
-/* ── Active Line — Premium Glow ────────────────── */
-/* The multi-layer text-shadow glow is set inline by JS (breathing effect). */
-/* These CSS properties handle the non-dynamic parts.                       */
-
 .lyric-line-active {
   color: var(--text-primary);
   z-index: 1;
+}
+
+/* ─── Sync Button ────────────────────────────────────────────────────────── */
+/* Appears at the bottom when user scrolls away from current line */
+
+.lyrics-sync-btn {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: white;
+  font-family: var(--font-family);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.3),
+    0 0 20px var(--glow);
+
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.lyrics-sync-btn:hover {
+  background: var(--accent);
+  box-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.4),
+    0 0 30px var(--glow-strong);
+}
+
+.lyrics-sync-btn:active {
+  transform: translateX(-50%) scale(0.95);
 }
 
 /* ─── Plain Lyrics ───────────────────────────────────────────────────────── */
