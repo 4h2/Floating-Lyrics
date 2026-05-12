@@ -260,9 +260,9 @@ export const App: React.FC = () => {
                 background: 'rgba(255,255,255,0.05)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
-                {player.track?.albumArtUrl ? (
+                {(player.track?.albumArtUrlSmall || player.track?.albumArtUrl) ? (
                   <img
-                    src={player.track.albumArtUrl} alt=""
+                    src={player.track.albumArtUrlSmall || player.track.albumArtUrl!} alt=""
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     crossOrigin="anonymous"
                   />

@@ -184,12 +184,22 @@ export class SpotifyPlaybackService {
     }
   }
 
+  /**
+   * Extract track info from the Spotify API response.
+   * Album art comes directly from the official Spotify Web API:
+   *   item.album.images[] — typically 3 sizes: 640px, 300px, 64px.
+   * We select the largest for the blurred background and a mid-size for thumbnails.
+   */
   private extractTrackInfo(state: SpotifyPlaybackState): TrackInfo {
     const item = state.item!
-    const bestImage = item.album.images.reduce((best, img) => {
-      if (!best || (img.width && best.width && img.width > best.width)) return img
-      return best
-    }, item.album.images[0])
+    const images = [...item.album.images]
+
+    // Sort by width descending — largest first
+    images.sort((a, b) => (b.width || 0) - (a.width || 0))
+
+    const bestImage = images[0] || null
+    // Pick a mid-size image for thumbnails (~300px), fallback to largest
+    const smallImage = images.find(img => img.width && img.width <= 300) || bestImage
 
     return {
       id: item.id,
@@ -198,6 +208,7 @@ export class SpotifyPlaybackService {
       artistsList: item.artists.map(a => a.name),
       album: item.album.name,
       albumArtUrl: bestImage?.url || null,
+      albumArtUrlSmall: smallImage?.url || null,
       durationMs: item.duration_ms
     }
   }

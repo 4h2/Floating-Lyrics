@@ -55,7 +55,10 @@ export interface TrackInfo {
   artist: string
   artistsList: string[]
   album: string
+  /** Highest resolution album art (typically 640px) — used for blurred background */
   albumArtUrl: string | null
+  /** Medium resolution album art (typically 300px) — used for thumbnails */
+  albumArtUrlSmall: string | null
   durationMs: number
 }
 
