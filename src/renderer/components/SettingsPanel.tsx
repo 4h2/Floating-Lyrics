@@ -50,7 +50,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
             </div>
             <input
               type="range" className="setting-slider"
-              min={0.3} max={1} step={0.05}
+              min={0.3} max={1} step={0.01}
               value={settings.windowOpacity}
               onChange={e => {
                 const v = Number(e.target.value)
@@ -86,7 +86,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
             </div>
             <input
               type="range" className="setting-slider"
-              min={0} max={100} step={5}
+              min={0} max={100} step={1}
               value={settings.albumArtPresence}
               onChange={e => settings.updateSetting('albumArtPresence', Number(e.target.value))}
             />
@@ -105,7 +105,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
             </div>
             <input
               type="range" className="setting-slider"
-              min={-2000} max={2000} step={50}
+              min={-2000} max={2000} step={10}
               value={settings.lyricsOffsetMs}
               onChange={e => settings.updateSetting('lyricsOffsetMs', Number(e.target.value))}
             />
