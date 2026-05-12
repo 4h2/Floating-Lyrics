@@ -16,8 +16,8 @@ import { useSettingsStore } from '../stores/settingsStore'
  */
 
 // ─── Spring Scroll Hook ──────────────────────────────────────────────────────
-// Returns { scrollTo, isAnimating } — we need isAnimating to distinguish
-// programmatic scrolls from user scrolls.
+// Returns scrollTo — we removed isAnimating because we now detect user scroll
+// via wheel/touch events instead of monitoring the animation state.
 
 function useSpringScroll(containerRef: React.RefObject<HTMLDivElement | null>) {
   const targetRef = useRef(0)
@@ -59,7 +59,7 @@ function useSpringScroll(containerRef: React.RefObject<HTMLDivElement | null>) {
     }
   }, [])
 
-  return { scrollTo, isAnimating: isAnimatingRef }
+  return scrollTo
 }
 
 // ─── Visual Weight Calculation ───────────────────────────────────────────────
@@ -198,27 +198,39 @@ export const LyricsDisplay: React.FC = () => {
   const fontSize = useSettingsStore(s => s.fontSize)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map())
-  const { scrollTo: springScrollTo, isAnimating } = useSpringScroll(containerRef)
+  const springScrollTo = useSpringScroll(containerRef)
   const prevLyricsRef = useRef<unknown>(null)
 
   // ─── User Scroll Detection ─────────────────────────────────────────
-  // When the user scrolls manually (not our spring scroll), pause auto-scroll
-  // and show a "sync" button.
+  // Use 'wheel' and 'touchstart' events — these ONLY fire from real user
+  // input, never from programmatic scrollTop changes.
   const [userScrolled, setUserScrolled] = useState(false)
   const userScrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleScroll = useCallback(() => {
-    // If our spring animation is driving the scroll, ignore
-    if (isAnimating.current) return
-
+  const markUserScrolled = useCallback(() => {
     setUserScrolled(true)
-
-    // Auto-resume after 5 seconds of no scrolling
     if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current)
     userScrollTimeout.current = setTimeout(() => {
       setUserScrolled(false)
     }, 5000)
-  }, [isAnimating])
+  }, [])
+
+  // Attach wheel/touch listeners to the container
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onWheel = () => markUserScrolled()
+    const onTouchStart = () => markUserScrolled()
+
+    el.addEventListener('wheel', onWheel, { passive: true })
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchstart', onTouchStart)
+    }
+  }, [markUserScrolled, lyrics]) // re-attach when lyrics change
 
   const handleSyncClick = useCallback(() => {
     setUserScrolled(false)
@@ -327,7 +339,6 @@ export const LyricsDisplay: React.FC = () => {
         <div
           className="lyrics-container"
           ref={containerRef}
-          onScroll={handleScroll}
         >
           <div className="lyrics-spacer lyrics-spacer-top" />
 
