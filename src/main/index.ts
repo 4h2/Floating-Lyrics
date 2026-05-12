@@ -18,7 +18,7 @@ import { randomBytes, createHash } from 'crypto'
 
 const SPOTIFY_CLIENT_ID = import.meta.env.MAIN_VITE_SPOTIFY_CLIENT_ID || ''
 const SPOTIFY_REDIRECT_URI = import.meta.env.MAIN_VITE_SPOTIFY_REDIRECT_URI || 'http://127.0.0.1:8888/callback'
-const SPOTIFY_SCOPES = 'user-read-currently-playing user-read-playback-state'
+const SPOTIFY_SCOPES = 'user-read-currently-playing user-read-playback-state user-modify-playback-state'
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 const AUTH_PORT = 8888
 
