@@ -14,6 +14,7 @@ export interface AppSettings {
   mode: 'compact' | 'expanded'
   /** 0 = hidden, 100 = vivid/sharp. Controls blur, brightness, opacity of album art bg */
   albumArtPresence: number
+  showProgressBar: boolean
 }
 
 const defaults: AppSettings = {
@@ -26,6 +27,7 @@ const defaults: AppSettings = {
   lrcFolderPath: '',
   mode: 'expanded',
   albumArtPresence: 70,
+  showProgressBar: true,
 }
 
 interface SettingsState extends AppSettings {

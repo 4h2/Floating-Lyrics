@@ -42,6 +42,7 @@ interface AppSettings {
   mode: 'compact' | 'expanded'
   globalShortcut: string
   albumArtPresence: number
+  showProgressBar: boolean
 }
 
 const defaultSettings: AppSettings = {
@@ -56,6 +57,7 @@ const defaultSettings: AppSettings = {
   mode: 'expanded',
   globalShortcut: 'Ctrl+Shift+L',
   albumArtPresence: 70,
+  showProgressBar: true,
 }
 
 function loadSettings(): AppSettings {

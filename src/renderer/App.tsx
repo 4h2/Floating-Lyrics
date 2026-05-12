@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { TitleBar } from './components/TitleBar'
 import { LoginScreen } from './components/LoginScreen'
 import { LyricsDisplay } from './components/LyricsDisplay'
+import { ProgressBar } from './components/ProgressBar'
 import { SettingsPanel } from './components/SettingsPanel'
 import { usePlayerStore } from './stores/playerStore'
 import { useLyricsStore } from './stores/lyricsStore'
@@ -293,6 +294,10 @@ export const App: React.FC = () => {
                 <span style={{ fontSize: '11px', opacity: 0.3, flexShrink: 0 }}>PAUSED</span>
               )}
             </div>
+            {/* Progress Bar */}
+            {settings.showProgressBar && player.track && (
+              <ProgressBar />
+            )}
 
             {/* Lyrics */}
             <LyricsDisplay />

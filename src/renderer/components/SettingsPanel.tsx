@@ -92,6 +92,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
             />
             <div className="setting-hint">Controls blur and visibility of album cover background</div>
           </div>
+
+          <div className="setting-row">
+            <div className="setting-row-header">
+              <span className="setting-label">Progress Bar</span>
+              <button
+                className={`setting-toggle ${settings.showProgressBar ? 'active' : ''}`}
+                onClick={() => settings.updateSetting('showProgressBar', !settings.showProgressBar)}
+              >
+                <div className="setting-toggle-knob" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Lyrics */}
