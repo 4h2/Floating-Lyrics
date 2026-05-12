@@ -128,14 +128,16 @@ async function extractColors(imageUrl: string): Promise<ThemeColors> {
         const hsl = rgbToHsl(dominant[0], dominant[1], dominant[2])
         const hsl2 = rgbToHsl(secondary[0], secondary[1], secondary[2])
 
-        // Create a dark theme variant based on album colors
-        const isDark = hsl[2] < 0.5
+        // Create a rich, immersive dark theme tinted by album colors
+        // Higher saturation values = more vivid, album-specific feel
+        const sat1 = Math.min(hsl[1] * 100, 70)
+        const sat2 = Math.min(hsl2[1] * 100, 65)
 
-        const bgPrimary = `hsl(${hsl[0]}, ${Math.min(hsl[1] * 100, 30)}%, ${isDark ? 6 : 8}%)`
-        const bgSecondary = `hsl(${hsl[0]}, ${Math.min(hsl[1] * 100, 40)}%, ${isDark ? 10 : 14}%)`
-        const accent = `hsl(${hsl2[0]}, ${Math.max(hsl2[1] * 100, 50)}%, ${Math.max(hsl2[2] * 100, 50)}%)`
-        const gradientStart = `hsl(${hsl[0]}, ${Math.min(hsl[1] * 100, 35)}%, 8%)`
-        const gradientEnd = `hsl(${hsl2[0]}, ${Math.min(hsl2[1] * 100, 30)}%, 15%)`
+        const bgPrimary = `hsl(${hsl[0]}, ${Math.min(sat1, 45)}%, 7%)`
+        const bgSecondary = `hsl(${hsl[0]}, ${Math.min(sat1, 55)}%, 12%)`
+        const accent = `hsl(${hsl2[0]}, ${Math.max(hsl2[1] * 100, 55)}%, ${Math.max(hsl2[2] * 100, 55)}%)`
+        const gradientStart = `hsl(${hsl[0]}, ${Math.min(sat1, 50)}%, 8%)`
+        const gradientEnd = `hsl(${hsl2[0]}, ${Math.min(sat2, 45)}%, 18%)`
 
         const glowBase = accent.replace(')', ', 0.5)').replace('hsl(', 'hsla(')
         const glowStrong = accent.replace(')', ', 0.7)').replace('hsl(', 'hsla(')

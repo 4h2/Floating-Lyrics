@@ -12,6 +12,7 @@ export interface AppSettings {
   musixmatchEnabled: boolean
   lrcFolderPath: string
   mode: 'compact' | 'expanded'
+  albumArtBackground: boolean
 }
 
 const defaults: AppSettings = {
@@ -23,6 +24,7 @@ const defaults: AppSettings = {
   musixmatchEnabled: false,
   lrcFolderPath: '',
   mode: 'expanded',
+  albumArtBackground: true,
 }
 
 interface SettingsState extends AppSettings {

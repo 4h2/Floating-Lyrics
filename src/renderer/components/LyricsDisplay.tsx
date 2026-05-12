@@ -231,12 +231,26 @@ export const LyricsDisplay: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null)
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const springScroll = useSpringScroll(containerRef)
+  const prevLyricsRef = useRef<unknown>(null)
 
   // Read CSS glow color from theme
   const glowColor = useMemo(() => {
     const root = document.documentElement
     return getComputedStyle(root).getPropertyValue('--glow').trim() || 'rgba(255, 255, 255, 0.3)'
   }, [syncState?.currentIndex])
+
+  // ─── Reset scroll to top on new song ───────────────────────────────
+  useEffect(() => {
+    if (lyrics && lyrics !== prevLyricsRef.current) {
+      prevLyricsRef.current = lyrics
+      // Instantly jump to top (no animation — the first line will spring-scroll naturally)
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0
+      }
+      // Clear line refs for the new set of lines
+      lineRefs.current.clear()
+    }
+  }, [lyrics])
 
   // ─── Spring Scroll to Current Line ─────────────────────────────────
   const scrollToLine = useCallback((index: number) => {
@@ -245,7 +259,6 @@ export const LyricsDisplay: React.FC = () => {
       const container = containerRef.current
       const elRect = el.getBoundingClientRect()
       const containerRect = container.getBoundingClientRect()
-      // Target: position the current line at ~35% from the top
       const target = container.scrollTop + (elRect.top - containerRect.top) - containerRect.height * 0.35
       springScroll(target)
     }

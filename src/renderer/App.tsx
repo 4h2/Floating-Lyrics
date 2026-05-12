@@ -230,7 +230,7 @@ export const App: React.FC = () => {
     <div className="app-container">
       {/* Background blur layer */}
       <div className="app-bg">
-        {player.track?.albumArtUrl && (
+        {settings.albumArtBackground && player.track?.albumArtUrl && (
           <img
             className="app-bg-image"
             src={player.track.albumArtUrl}

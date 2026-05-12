@@ -101,3 +101,10 @@
   cursor: pointer; transition: all var(--duration-fast);
 }
 .settings-danger-btn:hover { background: rgba(255,60,60,0.2); }
+
+.setting-hint {
+  font-size: var(--font-size-xs);
+  opacity: 0.3;
+  line-height: 1.4;
+  margin-top: -2px;
+}
