@@ -1,0 +1,41 @@
+appId: com.floating-lyrics.app
+productName: Floating Lyrics
+copyright: Copyright © 2026
+
+directories:
+  buildResources: build
+  output: dist
+
+files:
+  - out/**/*
+  - "!node_modules/**/*"
+
+extraResources:
+  - from: resources/
+    to: resources/
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: ${productName}-${version}-Setup.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
+  shortcutName: Floating Lyrics
+  uninstallDisplayName: Floating Lyrics
+
+# Portable version (no installer, just .exe)
+# Uncomment below and comment out nsis section above for a portable build
+# win:
+#   target:
+#     - target: portable
+#       arch:
+#         - x64

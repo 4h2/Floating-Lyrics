@@ -1,0 +1,103 @@
+/* Settings Panel */
+.settings-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: flex-end;
+}
+.settings-panel {
+  width: 100%;
+  max-width: 360px;
+  height: 100%;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--glass-border);
+  overflow-y: auto;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings-title { font-size: var(--font-size-lg); font-weight: 700; }
+.settings-close-btn {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.05); border: none;
+  color: var(--text-secondary); border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 18px;
+  transition: all var(--duration-fast);
+}
+.settings-close-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.settings-section { display: flex; flex-direction: column; gap: var(--space-md); }
+.settings-section-title {
+  font-size: var(--font-size-xs); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px; opacity: 0.4;
+}
+.setting-row { display: flex; flex-direction: column; gap: var(--space-xs); }
+.setting-row-header { display: flex; align-items: center; justify-content: space-between; }
+.setting-label { font-size: var(--font-size-sm); font-weight: 500; }
+.setting-value { font-size: var(--font-size-xs); opacity: 0.4; font-variant-numeric: tabular-nums; }
+.setting-slider {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  background: rgba(255,255,255,0.1); border-radius: var(--radius-full); outline: none; cursor: pointer;
+}
+.setting-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 8px var(--glow);
+}
+.setting-toggle {
+  position: relative; width: 40px; height: 22px;
+  background: rgba(255,255,255,0.1); border: none;
+  border-radius: var(--radius-full); cursor: pointer;
+  transition: background var(--duration-fast); flex-shrink: 0;
+}
+.setting-toggle.active { background: var(--accent); }
+.setting-toggle-knob {
+  position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  background: white; border-radius: 50%;
+  transition: transform var(--duration-fast) var(--ease-spring);
+}
+.setting-toggle.active .setting-toggle-knob { transform: translateX(18px); }
+.setting-select-group { display: flex; gap: var(--space-xs); }
+.setting-select-btn {
+  flex: 1; padding: 8px 12px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-secondary); border-radius: var(--radius-sm);
+  cursor: pointer; font-family: var(--font-family);
+  font-size: var(--font-size-xs); font-weight: 500;
+  transition: all var(--duration-fast);
+}
+.setting-select-btn:hover { background: rgba(255,255,255,0.1); }
+.setting-select-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.setting-folder { display: flex; gap: var(--space-sm); align-items: center; }
+.setting-folder-path {
+  flex: 1; padding: 8px 12px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm); font-size: var(--font-size-xs);
+  color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; min-height: 34px; display: flex; align-items: center;
+}
+.setting-folder-btn {
+  padding: 8px 16px; background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-sm);
+  color: var(--text-primary); font-family: var(--font-family);
+  font-size: var(--font-size-xs); font-weight: 500;
+  cursor: pointer; white-space: nowrap; transition: all var(--duration-fast);
+}
+.setting-folder-btn:hover { background: rgba(255,255,255,0.15); }
+.settings-danger-btn {
+  padding: 10px 16px; background: rgba(255,60,60,0.1);
+  border: 1px solid rgba(255,60,60,0.2); border-radius: var(--radius-sm);
+  color: #ff6b6b; font-family: var(--font-family);
+  font-size: var(--font-size-sm); font-weight: 500;
+  cursor: pointer; transition: all var(--duration-fast);
+}
+.settings-danger-btn:hover { background: rgba(255,60,60,0.2); }
