@@ -55,4 +55,6 @@ export interface LyricsSyncState {
   nextLines: SyncedLyricsLine[]
   /** Progress within the current line (0..1) */
   lineProgress: number
+  /** True when there's a long instrumental gap (>8s) between lines */
+  isInterlude: boolean
 }

@@ -380,6 +380,8 @@ export const LyricsDisplay: React.FC = () => {
     const currentIndex = syncState?.currentIndex ?? -1
     const lineProgress = syncState?.lineProgress ?? 0
 
+    const isInterlude = syncState?.isInterlude ?? false
+
     return (
       <div className="lyrics-wrapper">
         <div
@@ -401,6 +403,22 @@ export const LyricsDisplay: React.FC = () => {
                 fontSize={fontSize}
                 glowColor={glowColor}
               />
+
+              {/* Interlude indicator — shown after the current line during instrumental gaps */}
+              {i === currentIndex && isInterlude && (
+                <motion.div
+                  className="lyrics-interlude"
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                >
+                  <span className="interlude-note">♪</span>
+                  <span className="interlude-dot" style={{ animationDelay: '0s' }}>·</span>
+                  <span className="interlude-dot" style={{ animationDelay: '0.3s' }}>·</span>
+                  <span className="interlude-dot" style={{ animationDelay: '0.6s' }}>·</span>
+                </motion.div>
+              )}
             </div>
           ))}
 

@@ -124,6 +124,19 @@ export class LyricsSyncEngine {
 
     const currentLine = currentIndex >= 0 ? lines[currentIndex] : null
 
+    // Detect instrumental interludes (gap > 8s between current line end and next line start)
+    let isInterlude = false
+    if (currentIndex >= 0 && currentIndex < lines.length - 1) {
+      const lineEnd = lines[currentIndex].endTimeMs || lines[currentIndex + 1]?.startTimeMs
+      const nextStart = lines[currentIndex + 1]?.startTimeMs
+      if (lineEnd && nextStart) {
+        const gap = nextStart - lineEnd
+        // Only flag as interlude if we're past the current line's text (lineProgress > 0.9)
+        // AND the gap is > 8 seconds
+        isInterlude = gap > 8000 && lineProgress > 0.9
+      }
+    }
+
     // Gather context lines
     const previousLines = currentIndex > 0
       ? lines.slice(Math.max(0, currentIndex - 4), currentIndex).reverse()
@@ -137,7 +150,8 @@ export class LyricsSyncEngine {
       previousLines,
       currentLine,
       nextLines,
-      lineProgress
+      lineProgress,
+      isInterlude
     })
   }
 

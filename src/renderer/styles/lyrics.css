@@ -210,3 +210,30 @@
   font-size: var(--font-size-sm);
   opacity: 0.4;
 }
+
+/* ─── Interlude Indicator ────────────────────────────────────────────────── */
+
+.lyrics-interlude {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px 0;
+  opacity: 0.35;
+}
+
+.interlude-note {
+  font-size: 18px;
+  animation: interlude-pulse 2s ease-in-out infinite;
+  text-shadow: 0 0 12px var(--glow);
+}
+
+.interlude-dot {
+  font-size: 16px;
+  animation: interlude-pulse 2s ease-in-out infinite;
+}
+
+@keyframes interlude-pulse {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-2px); }
+}
