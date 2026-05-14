@@ -120,7 +120,9 @@ body {
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: linear-gradient(160deg, var(--gradient-start), var(--gradient-end));
-  transition: background var(--duration-slow) var(--ease-out);
+  /* Smooth crossfade for theme colors when song changes */
+  transition:
+    background 1.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Background layer for album art blur */
@@ -244,10 +246,11 @@ body {
 
 .progress-bar-fill {
   height: 100%;
-  background: rgba(255, 255, 255, 0.35);
+  background: var(--glow-strong);
   border-radius: var(--radius-full);
   position: relative;
-  /* No CSS transition — the width is updated at 60fps by rAF */
+  /* Width is updated at 60fps by rAF, but color transitions smoothly with theme */
+  transition: background 1.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .progress-bar-fill::after {

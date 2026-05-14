@@ -147,6 +147,7 @@ interface LyricLineProps {
   lineProgress: number
   fontSize: number
   glowColor: string
+  seekable?: boolean
 }
 
 const LyricLine = React.memo<LyricLineProps>(({
@@ -156,13 +157,14 @@ const LyricLine = React.memo<LyricLineProps>(({
   lineProgress,
   fontSize,
   glowColor,
+  seekable,
 }) => {
   const v = computeLineVisuals(index, currentIndex, lineProgress)
   const isCurrent = index === currentIndex
 
   return (
     <motion.div
-      className={`lyric-line ${isCurrent ? 'lyric-line-active' : ''}`}
+      className={`lyric-line ${isCurrent ? 'lyric-line-active' : ''} ${seekable ? 'lyric-line-seekable' : ''}`}
       animate={{
         opacity: v.opacity,
         scale: v.scale,
@@ -193,7 +195,11 @@ LyricLine.displayName = 'LyricLine'
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-export const LyricsDisplay: React.FC = () => {
+interface LyricsDisplayProps {
+  onSeek?: (positionMs: number) => void
+}
+
+export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
   const { lyrics, status, syncState, errorMessage } = useLyricsStore()
   const fontSize = useSettingsStore(s => s.fontSize)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -394,6 +400,8 @@ export const LyricsDisplay: React.FC = () => {
             <div
               key={i}
               ref={el => { if (el) lineRefs.current.set(i, el) }}
+              onClick={() => onSeek?.(line.startTimeMs)}
+              style={{ cursor: onSeek ? 'pointer' : 'default' }}
             >
               <LyricLine
                 text={line.text}
@@ -402,6 +410,7 @@ export const LyricsDisplay: React.FC = () => {
                 lineProgress={lineProgress}
                 fontSize={fontSize}
                 glowColor={glowColor}
+                seekable={!!onSeek}
               />
 
               {/* Interlude indicator — shown after the current line during instrumental gaps */}

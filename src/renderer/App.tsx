@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { TitleBar } from './components/TitleBar'
 import { LoginScreen } from './components/LoginScreen'
 import { LyricsDisplay } from './components/LyricsDisplay'
 import { ProgressBar } from './components/ProgressBar'
+import { CompactLyric } from './components/CompactLyric'
 import { SettingsPanel } from './components/SettingsPanel'
 import { usePlayerStore } from './stores/playerStore'
 import { useLyricsStore } from './stores/lyricsStore'
@@ -213,6 +215,19 @@ export const App: React.FC = () => {
     setSettingsOpen(false)
   }, [])
 
+  // ─── Seek to Position ──────────────────────────────────────────────
+
+  const handleSeek = useCallback((positionMs: number) => {
+    playbackService.current.seekTo(positionMs)
+  }, [])
+
+  // ─── Toggle Expanded / Compact Mode ────────────────────────────────
+
+  const toggleMode = useCallback(() => {
+    const next = settings.mode === 'expanded' ? 'compact' : 'expanded'
+    settings.updateSetting('mode', next)
+  }, [settings.mode])
+
   // ─── Clear Cache ───────────────────────────────────────────────────
 
   const handleClearCache = useCallback(() => {
@@ -229,21 +244,26 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      {/* Background blur layer — presence controls blur/brightness/opacity */}
+      {/* Background blur layer — crossfade on song change */}
       <div className="app-bg">
-        {settings.albumArtPresence > 0 && player.track?.albumArtUrl && (
-          <img
-            className="app-bg-image"
-            src={player.track.albumArtUrl}
-            alt=""
-            crossOrigin="anonymous"
-            style={{
-              // 0 = max blur (80px), 100 = min blur (5px)
-              filter: `blur(${80 - settings.albumArtPresence * 0.75}px) saturate(${1.2 + settings.albumArtPresence * 0.01}) brightness(${0.2 + settings.albumArtPresence * 0.003})`,
-              opacity: 0.3 + settings.albumArtPresence * 0.006,
-            }}
-          />
-        )}
+        <AnimatePresence mode="sync">
+          {settings.albumArtPresence > 0 && player.track?.albumArtUrl && (
+            <motion.img
+              key={player.track.albumArtUrl}
+              className="app-bg-image"
+              src={player.track.albumArtUrl}
+              alt=""
+              crossOrigin="anonymous"
+              style={{
+                filter: `blur(${80 - settings.albumArtPresence * 0.75}px) saturate(${1.2 + settings.albumArtPresence * 0.01}) brightness(${0.2 + settings.albumArtPresence * 0.003})`,
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.3 + settings.albumArtPresence * 0.006 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, ease: 'easeInOut' }}
+            />
+          )}
+        </AnimatePresence>
         <div className="app-bg-overlay" />
       </div>
 
@@ -255,52 +275,173 @@ export const App: React.FC = () => {
           <LoginScreen onLogin={handleLogin} />
         ) : (
           <>
-            {/* Player Header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '0 16px 12px 16px', flexShrink: 0
-            }}>
-              <div style={{
-                width: '52px', height: '52px', borderRadius: '8px',
-                overflow: 'hidden', flexShrink: 0,
-                background: 'rgba(255,255,255,0.05)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}>
-                {(player.track?.albumArtUrlSmall || player.track?.albumArtUrl) ? (
-                  <img
-                    src={player.track.albumArtUrlSmall || player.track.albumArtUrl!} alt=""
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    crossOrigin="anonymous"
-                  />
-                ) : (
-                  <span style={{ fontSize: '20px', opacity: 0.3 }}>🎵</span>
+            {/* Player Content — both modes rendered, one visible at a time.
+                This allows layoutId="album-art" to perform a shared-element transition. */}
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+
+              {/* ─── Expanded Layer ─── */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: settings.mode === 'expanded' ? 1 : 0,
+                  pointerEvents: settings.mode === 'expanded' ? 'auto' : 'none',
+                  transition: 'opacity 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  zIndex: settings.mode === 'expanded' ? 1 : 0,
+                }}
+              >
+                {/* Header */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '0 16px 12px 16px', flexShrink: 0
+                }}>
+                  {/* Thumbnail — shared element source */}
+                  <motion.div
+                    onClick={toggleMode}
+                    title="Tap to expand"
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.95 }}
+                    style={{
+                      width: '52px', height: '52px', borderRadius: '8px',
+                      overflow: 'hidden', flexShrink: 0,
+                      background: 'rgba(255,255,255,0.05)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    }}
+                  >
+                    {player.track?.albumArtUrlSmall || player.track?.albumArtUrl ? (
+                      <motion.img
+                        layoutId="album-art"
+                        key={player.track?.id || 'none'}
+                        src={player.track.albumArtUrlSmall || player.track.albumArtUrl!}
+                        alt=""
+                        style={{
+                          width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit',
+                        }}
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <span style={{ fontSize: '20px', opacity: 0.3 }}>🎵</span>
+                    )}
+                  </motion.div>
+
+                  <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '14px', fontWeight: 600,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}>
+                      {player.track?.title || 'No track'}
+                    </div>
+                    <div style={{
+                      fontSize: '12px', opacity: 0.5,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}>
+                      {player.track?.artist || 'Play something on Spotify'}
+                    </div>
+                  </div>
+
+                  {!player.isPlaying && player.track && (
+                    <span style={{ fontSize: '11px', opacity: 0.3, flexShrink: 0 }}>PAUSED</span>
+                  )}
+                </div>
+
+                {/* Progress Bar */}
+                {settings.showProgressBar && player.track && (
+                  <ProgressBar />
+                )}
+
+                {/* Lyrics */}
+                <LyricsDisplay onSeek={handleSeek} />
+              </div>
+
+              {/* ─── Compact Layer ─── */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: settings.mode === 'compact' ? 1 : 0,
+                  pointerEvents: settings.mode === 'compact' ? 'auto' : 'none',
+                  transition: 'opacity 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '16px',
+                  padding: '20px 16px',
+                  zIndex: settings.mode === 'compact' ? 1 : 0,
+                }}
+              >
+                {/* Big Album Art — shared element destination */}
+                <motion.div
+                  onClick={toggleMode}
+                  title="Tap to shrink"
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.94 }}
+                  style={{
+                    width: 'min(180px, 60vw)',
+                    height: 'min(180px, 60vw)',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    background: 'rgba(255,255,255,0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  {player.track?.albumArtUrl ? (
+                    <motion.img
+                      layoutId="album-art"
+                      key={player.track?.id || 'none'}
+                      src={player.track.albumArtUrl}
+                      alt={player.track?.album || 'Album Art'}
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit',
+                      }}
+                      crossOrigin="anonymous"
+                    />
+                  ) : (
+                    <span style={{ fontSize: '48px', opacity: 0.3 }}>🎵</span>
+                  )}
+                </motion.div>
+
+                {/* Track Info */}
+                <div style={{ textAlign: 'center', width: '100%', minWidth: 0 }}>
+                  <div style={{
+                    fontSize: '15px', fontWeight: 700,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }}>
+                    {player.track?.title || 'No track'}
+                  </div>
+                  <div style={{
+                    fontSize: '12px', opacity: 0.5,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    marginTop: '2px'
+                  }}>
+                    {player.track?.artist || 'Play something on Spotify'}
+                  </div>
+                </div>
+
+                {/* Single Line Lyric */}
+                <CompactLyric />
+
+                {/* Progress Bar */}
+                {settings.showProgressBar && player.track && (
+                  <div style={{ width: '100%', flexShrink: 0 }}>
+                    <ProgressBar />
+                  </div>
+                )}
+
+                {!player.isPlaying && player.track && (
+                  <span style={{ fontSize: '10px', opacity: 0.25, letterSpacing: '1px' }}>PAUSED</span>
                 )}
               </div>
-              <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
-                <div style={{
-                  fontSize: '14px', fontWeight: 600,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}>
-                  {player.track?.title || 'No track'}
-                </div>
-                <div style={{
-                  fontSize: '12px', opacity: 0.5,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                }}>
-                  {player.track?.artist || 'Play something on Spotify'}
-                </div>
-              </div>
-              {!player.isPlaying && player.track && (
-                <span style={{ fontSize: '11px', opacity: 0.3, flexShrink: 0 }}>PAUSED</span>
-              )}
             </div>
-            {/* Progress Bar */}
-            {settings.showProgressBar && player.track && (
-              <ProgressBar />
-            )}
-
-            {/* Lyrics */}
-            <LyricsDisplay />
           </>
         )}
 

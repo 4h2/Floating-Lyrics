@@ -104,6 +104,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
               </button>
             </div>
           </div>
+
         </div>
 
         {/* Lyrics */}

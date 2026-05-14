@@ -35,6 +35,41 @@ export class SpotifyPlaybackService {
   }
 
   /**
+   * Seek to a position in the currently playing track.
+   */
+  async seekTo(positionMs: number): Promise<void> {
+    if (!this.tokens) return
+
+    try {
+      if (Date.now() >= this.tokens.expiresAt - 60000) {
+        await this.refreshAccessToken()
+      }
+
+      const response = await fetch(
+        `${SPOTIFY_API_BASE}/me/player/seek?position_ms=${Math.round(positionMs)}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${this.tokens.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (response.status === 401) {
+        this.onAuthError?.()
+        return
+      }
+
+      if (!response.ok && response.status !== 204) {
+        console.error('[SpotifyPlayback] Seek failed:', response.status)
+      }
+    } catch (e) {
+      console.error('[SpotifyPlayback] Seek error:', e)
+    }
+  }
+
+  /**
    * Exchange authorization code for tokens using PKCE flow
    */
   async exchangeCode(code: string, codeVerifier: string, redirectUri: string): Promise<SpotifyTokens> {

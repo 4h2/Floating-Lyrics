@@ -73,11 +73,22 @@
   color: var(--text-primary);
   position: relative;
 
-  /* Only text-shadow transitions via CSS (glow breathing) */
-  transition: text-shadow 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Smooth theme color crossfade + glow breathing */
+  transition:
+    color 1.5s cubic-bezier(0.4, 0, 0.2, 1),
+    text-shadow 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Prevent layout shifts from glow overflow */
   padding-right: 8px;
+}
+
+/* Click-to-seek hover state */
+.lyric-line.lyric-line-seekable {
+  cursor: pointer;
+}
+
+.lyric-line.lyric-line-seekable:hover {
+  opacity: 0.9 !important;
 }
 
 .lyric-line-active {
