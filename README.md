@@ -26,7 +26,7 @@ A premium floating lyrics miniplayer for Windows that connects to your Spotify a
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/floating-lyrics.git
+git clone https://github.com/4h2/floating-lyrics.git
 cd floating-lyrics
 npm install
 ```
