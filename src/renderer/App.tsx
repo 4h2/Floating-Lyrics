@@ -36,53 +36,86 @@ export const App: React.FC = () => {
   const [view, setView] = useState<AppView>('login')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // Stores
-  const player = usePlayerStore()
-  const lyrics = useLyricsStore()
-  const settings = useSettingsStore()
-  const theme = useThemeStore()
+  // Player state/actions (granular selectors to avoid global re-renders)
+  const track = usePlayerStore(s => s.track)
+  const isPlaying = usePlayerStore(s => s.isPlaying)
+  const playerError = usePlayerStore(s => s.error)
+  const setTrack = usePlayerStore(s => s.setTrack)
+  const setPlaying = usePlayerStore(s => s.setPlaying)
+  const updateProgress = usePlayerStore(s => s.updateProgress)
+  const setConnected = usePlayerStore(s => s.setConnected)
+  const setPlayerError = usePlayerStore(s => s.setError)
+  const resetPlayer = usePlayerStore(s => s.reset)
+
+  // Lyrics state/actions
+  const setLyrics = useLyricsStore(s => s.setLyrics)
+  const setLyricsStatus = useLyricsStore(s => s.setStatus)
+  const setLyricsError = useLyricsStore(s => s.setError)
+  const setSyncState = useLyricsStore(s => s.setSyncState)
+  const resetLyrics = useLyricsStore(s => s.reset)
+
+  // Settings state/actions used by App
+  const loadSettings = useSettingsStore(s => s.loadSettings)
+  const updateSetting = useSettingsStore(s => s.updateSetting)
+  const settingsLoaded = useSettingsStore(s => s.isLoaded)
+  const lrcFolderPath = useSettingsStore(s => s.lrcFolderPath)
+  const musixmatchEnabled = useSettingsStore(s => s.musixmatchEnabled)
+  const themeMode = useSettingsStore(s => s.theme)
+  const lyricsOffsetMs = useSettingsStore(s => s.lyricsOffsetMs)
+  const mode = useSettingsStore(s => s.mode)
+  const albumArtPresence = useSettingsStore(s => s.albumArtPresence)
+  const showProgressBar = useSettingsStore(s => s.showProgressBar)
+
+  // Theme actions/state used by App
+  const themeColors = useThemeStore(s => s.colors)
+  const setThemeMode = useThemeStore(s => s.setMode)
+  const generateFromAlbumArt = useThemeStore(s => s.generateFromAlbumArt)
+  const applyThemeToDOM = useThemeStore(s => s.applyToDOM)
+  const resetTheme = useThemeStore(s => s.reset)
 
   // Services (stable refs)
   const playbackService = useRef(new SpotifyPlaybackService())
   const lyricsService = useRef(new LyricsProviderService())
   const syncEngine = useRef(new LyricsSyncEngine())
   const localProvider = useRef(new LocalLrcProvider())
+  const lrcLibProvider = useRef(new LrcLibProvider())
   const mxmProvider = useRef(new MusixmatchUnofficialProvider())
+  const fallbackProvider = useRef(new FallbackStaticProvider())
 
   // ─── Initialize ────────────────────────────────────────────────────
 
   useEffect(() => {
-    settings.loadSettings()
-  }, [])
+    loadSettings()
+  }, [loadSettings])
 
   // Configure providers when settings change
   useEffect(() => {
-    if (!settings.isLoaded) return
+    if (!settingsLoaded) return
 
-    localProvider.current.setFolderPath(settings.lrcFolderPath)
-    mxmProvider.current.setEnabled(settings.musixmatchEnabled)
-    theme.setMode(settings.theme)
+    localProvider.current.setFolderPath(lrcFolderPath)
+    mxmProvider.current.setEnabled(musixmatchEnabled)
+    setThemeMode(themeMode)
 
     lyricsService.current.setProviders([
       localProvider.current,
-      new LrcLibProvider(),
+      lrcLibProvider.current,
       mxmProvider.current,
-      new FallbackStaticProvider(),
+      fallbackProvider.current,
     ])
-  }, [settings.isLoaded, settings.lrcFolderPath, settings.musixmatchEnabled, settings.theme])
+  }, [settingsLoaded, lrcFolderPath, musixmatchEnabled, themeMode, setThemeMode])
 
   // Sync engine offset
   useEffect(() => {
-    syncEngine.current.setOffset(settings.lyricsOffsetMs)
-  }, [settings.lyricsOffsetMs])
+    syncEngine.current.setOffset(lyricsOffsetMs)
+  }, [lyricsOffsetMs])
 
   // Sync engine state -> store
   useEffect(() => {
     syncEngine.current.onStateChange = (state) => {
-      lyrics.setSyncState(state)
+      setSyncState(state)
     }
     return () => { syncEngine.current.onStateChange = null }
-  }, [])
+  }, [setSyncState])
 
   // ─── Auth Flow (all PKCE is handled by main process) ───────────────
 
@@ -94,7 +127,7 @@ export const App: React.FC = () => {
         const config = await window.electronAPI.auth.getConfig()
         playbackService.current.setClientId(config.clientId)
         playbackService.current.setTokens(tokens)
-        player.setConnected(true)
+        setConnected(true)
         setView('player')
         playbackService.current.startPolling()
       }
@@ -106,8 +139,8 @@ export const App: React.FC = () => {
       const config = await window.electronAPI.auth.getConfig()
       playbackService.current.setClientId(config.clientId)
       playbackService.current.setTokens(tokens)
-      player.setConnected(true)
-      player.setError(null)
+      setConnected(true)
+      setPlayerError(null)
       setView('player')
       playbackService.current.startPolling()
     })
@@ -115,7 +148,7 @@ export const App: React.FC = () => {
     // 3. Listen for auth errors
     const unsubError = window.electronAPI.auth.onAuthError((error) => {
       console.error('[App] Auth error:', error)
-      player.setError(error)
+      setPlayerError(error)
     })
 
     return () => {
@@ -131,13 +164,13 @@ export const App: React.FC = () => {
 
     service.onPlaybackUpdate = (info) => {
       if (info.track) {
-        player.setTrack(info.track)
-        player.setPlaying(info.isPlaying)
-        player.updateProgress(info.progressMs, info.receivedAt)
+        setTrack(info.track)
+        setPlaying(info.isPlaying)
+        updateProgress(info.progressMs, info.receivedAt)
         syncEngine.current.updateProgress(info.progressMs, info.isPlaying)
       } else {
-        player.setTrack(null)
-        player.setPlaying(false)
+        setTrack(null)
+        setPlaying(false)
       }
     }
 
@@ -146,8 +179,8 @@ export const App: React.FC = () => {
     }
 
     service.onAuthError = () => {
-      player.setConnected(false)
-      player.setError('Session expired')
+      setConnected(false)
+      setPlayerError('Session expired')
       service.stopPolling()
       setView('login')
     }
@@ -168,12 +201,12 @@ export const App: React.FC = () => {
 
   const handleTrackChange = useCallback(async (track: TrackInfoType) => {
     if (track.albumArtUrl) {
-      theme.generateFromAlbumArt(track.albumArtUrl)
+      generateFromAlbumArt(track.albumArtUrl)
     } else {
-      theme.reset()
+      resetTheme()
     }
 
-    lyrics.setStatus('loading')
+    setLyricsStatus('loading')
     syncEngine.current.setLyrics(null)
 
     try {
@@ -184,16 +217,16 @@ export const App: React.FC = () => {
         durationMs: track.durationMs,
       })
 
-      lyrics.setLyrics(result)
+      setLyrics(result)
 
       if (result?.type === 'synced') {
         syncEngine.current.setLyrics(result as SyncedLyrics)
       }
     } catch (e) {
       console.error('[Lyrics] Fetch error:', e)
-      lyrics.setError('Failed to fetch lyrics')
+      setLyricsError('Failed to fetch lyrics')
     }
-  }, [])
+  }, [generateFromAlbumArt, resetTheme, setLyricsStatus, setLyrics, setLyricsError])
 
   // ─── Login (just tells main process to start the flow) ─────────────
 
@@ -208,12 +241,12 @@ export const App: React.FC = () => {
     playbackService.current.stopPolling()
     playbackService.current.clearTokens()
     window.electronAPI.auth.logout()
-    player.reset()
-    lyrics.reset()
-    theme.reset()
+    resetPlayer()
+    resetLyrics()
+    resetTheme()
     setView('login')
     setSettingsOpen(false)
-  }, [])
+  }, [resetPlayer, resetLyrics, resetTheme])
 
   // ─── Seek to Position ──────────────────────────────────────────────
 
@@ -224,9 +257,9 @@ export const App: React.FC = () => {
   // ─── Toggle Expanded / Compact Mode ────────────────────────────────
 
   const toggleMode = useCallback(() => {
-    const next = settings.mode === 'expanded' ? 'compact' : 'expanded'
-    settings.updateSetting('mode', next)
-  }, [settings.mode])
+    const next = mode === 'expanded' ? 'compact' : 'expanded'
+    updateSetting('mode', next)
+  }, [mode, updateSetting])
 
   // ─── Clear Cache ───────────────────────────────────────────────────
 
@@ -237,8 +270,8 @@ export const App: React.FC = () => {
   // ─── Apply theme to DOM ────────────────────────────────────────────
 
   useEffect(() => {
-    theme.applyToDOM()
-  }, [theme.colors])
+    applyThemeToDOM()
+  }, [themeColors])
 
   // ─── Render ────────────────────────────────────────────────────────
 
@@ -247,18 +280,18 @@ export const App: React.FC = () => {
       {/* Background blur layer — crossfade on song change */}
       <div className="app-bg">
         <AnimatePresence mode="sync">
-          {settings.albumArtPresence > 0 && player.track?.albumArtUrl && (
+          {albumArtPresence > 0 && track?.albumArtUrl && (
             <motion.img
-              key={player.track.albumArtUrl}
+              key={track.albumArtUrl}
               className="app-bg-image"
-              src={player.track.albumArtUrl}
+              src={track.albumArtUrl}
               alt=""
               crossOrigin="anonymous"
               style={{
-                filter: `blur(${80 - settings.albumArtPresence * 0.75}px) saturate(${1.2 + settings.albumArtPresence * 0.01}) brightness(${0.2 + settings.albumArtPresence * 0.003})`,
+                filter: `blur(${80 - albumArtPresence * 0.75}px) saturate(${1.2 + albumArtPresence * 0.01}) brightness(${0.2 + albumArtPresence * 0.003})`,
               }}
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.3 + settings.albumArtPresence * 0.006 }}
+              animate={{ opacity: 0.3 + albumArtPresence * 0.006 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 1.5, ease: 'easeInOut' }}
             />
@@ -284,12 +317,12 @@ export const App: React.FC = () => {
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  opacity: settings.mode === 'expanded' ? 1 : 0,
-                  pointerEvents: settings.mode === 'expanded' ? 'auto' : 'none',
+                  opacity: mode === 'expanded' ? 1 : 0,
+                  pointerEvents: mode === 'expanded' ? 'auto' : 'none',
                   transition: 'opacity 0.3s ease',
                   display: 'flex',
                   flexDirection: 'column',
-                  zIndex: settings.mode === 'expanded' ? 1 : 0,
+                  zIndex: mode === 'expanded' ? 1 : 0,
                 }}
               >
                 {/* Header */}
@@ -312,11 +345,11 @@ export const App: React.FC = () => {
                       boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                     }}
                   >
-                    {player.track?.albumArtUrlSmall || player.track?.albumArtUrl ? (
+                    {track?.albumArtUrlSmall || track?.albumArtUrl ? (
                       <motion.img
                         layoutId="album-art"
-                        key={player.track?.id || 'none'}
-                        src={player.track.albumArtUrlSmall || player.track.albumArtUrl!}
+                        key={track?.id || 'none'}
+                        src={track.albumArtUrlSmall || track.albumArtUrl!}
                         alt=""
                         style={{
                           width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit',
@@ -333,23 +366,23 @@ export const App: React.FC = () => {
                       fontSize: '14px', fontWeight: 600,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                     }}>
-                      {player.track?.title || 'No track'}
+                      {track?.title || 'No track'}
                     </div>
                     <div style={{
                       fontSize: '12px', opacity: 0.5,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                     }}>
-                      {player.track?.artist || 'Play something on Spotify'}
+                      {track?.artist || 'Play something on Spotify'}
                     </div>
                   </div>
 
-                  {!player.isPlaying && player.track && (
+                  {!isPlaying && track && (
                     <span style={{ fontSize: '11px', opacity: 0.3, flexShrink: 0 }}>PAUSED</span>
                   )}
                 </div>
 
                 {/* Progress Bar */}
-                {settings.showProgressBar && player.track && (
+                {showProgressBar && track && mode === 'expanded' && (
                   <ProgressBar />
                 )}
 
@@ -362,8 +395,8 @@ export const App: React.FC = () => {
                 style={{
                   position: 'absolute',
                   inset: 0,
-                  opacity: settings.mode === 'compact' ? 1 : 0,
-                  pointerEvents: settings.mode === 'compact' ? 'auto' : 'none',
+                  opacity: mode === 'compact' ? 1 : 0,
+                  pointerEvents: mode === 'compact' ? 'auto' : 'none',
                   transition: 'opacity 0.3s ease',
                   display: 'flex',
                   flexDirection: 'column',
@@ -371,7 +404,7 @@ export const App: React.FC = () => {
                   justifyContent: 'center',
                   gap: '16px',
                   padding: '20px 16px',
-                  zIndex: settings.mode === 'compact' ? 1 : 0,
+                  zIndex: mode === 'compact' ? 1 : 0,
                 }}
               >
                 {/* Big Album Art — shared element destination */}
@@ -394,12 +427,12 @@ export const App: React.FC = () => {
                     boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
                   }}
                 >
-                  {player.track?.albumArtUrl ? (
+                  {track?.albumArtUrl ? (
                     <motion.img
                       layoutId="album-art"
-                      key={player.track?.id || 'none'}
-                      src={player.track.albumArtUrl}
-                      alt={player.track?.album || 'Album Art'}
+                      key={track?.id || 'none'}
+                      src={track.albumArtUrl}
+                      alt={track?.album || 'Album Art'}
                       style={{
                         width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit',
                       }}
@@ -416,28 +449,28 @@ export const App: React.FC = () => {
                     fontSize: '15px', fontWeight: 700,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                   }}>
-                    {player.track?.title || 'No track'}
+                    {track?.title || 'No track'}
                   </div>
                   <div style={{
                     fontSize: '12px', opacity: 0.5,
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     marginTop: '2px'
                   }}>
-                    {player.track?.artist || 'Play something on Spotify'}
+                    {track?.artist || 'Play something on Spotify'}
                   </div>
                 </div>
 
                 {/* Single Line Lyric */}
-                <CompactLyric />
+                {mode === 'compact' && <CompactLyric />}
 
                 {/* Progress Bar */}
-                {settings.showProgressBar && player.track && (
+                {showProgressBar && track && mode === 'compact' && (
                   <div style={{ width: '100%', flexShrink: 0 }}>
                     <ProgressBar />
                   </div>
                 )}
 
-                {!player.isPlaying && player.track && (
+                {!isPlaying && track && (
                   <span style={{ fontSize: '10px', opacity: 0.25, letterSpacing: '1px' }}>PAUSED</span>
                 )}
               </div>
@@ -446,7 +479,7 @@ export const App: React.FC = () => {
         )}
 
         {/* Error toast */}
-        {player.error && (
+        {playerError && (
           <div style={{
             position: 'absolute', bottom: '16px', left: '16px', right: '16px',
             padding: '10px 14px', background: 'rgba(255,60,60,0.15)',
@@ -454,7 +487,7 @@ export const App: React.FC = () => {
             fontSize: '12px', color: '#ff8888', zIndex: 300,
             backdropFilter: 'blur(12px)'
           }}>
-            {player.error}
+            {playerError}
           </div>
         )}
 

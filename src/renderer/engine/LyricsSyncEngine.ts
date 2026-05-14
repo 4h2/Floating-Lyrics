@@ -16,6 +16,9 @@ export class LyricsSyncEngine {
   // Smart diffing — only emit when state actually changes
   private lastEmittedIndex: number = -2 // -2 = never emitted
   private lastEmittedProgress: number = -1
+  private contextCacheIndex: number = Number.NEGATIVE_INFINITY
+  private contextCachePrevious: SyncedLyricsLine[] = []
+  private contextCacheNext: SyncedLyricsLine[] = []
 
   public onStateChange: ((state: LyricsSyncState) => void) | null = null
 
@@ -26,6 +29,9 @@ export class LyricsSyncEngine {
     this.lyrics = lyrics
     this.lastEmittedIndex = -2
     this.lastEmittedProgress = -1
+    this.contextCacheIndex = Number.NEGATIVE_INFINITY
+    this.contextCachePrevious = []
+    this.contextCacheNext = []
     this.emitState(true)
   }
 
@@ -137,19 +143,23 @@ export class LyricsSyncEngine {
       }
     }
 
-    // Gather context lines
-    const previousLines = currentIndex > 0
-      ? lines.slice(Math.max(0, currentIndex - 4), currentIndex).reverse()
-      : []
-    const nextLines = currentIndex >= 0
-      ? lines.slice(currentIndex + 1, currentIndex + 6)
-      : lines.slice(0, 5)
+    // Context slices are only recomputed when the active index changes.
+    // During line-progress updates we reuse stable array references to reduce churn/GC.
+    if (currentIndex !== this.contextCacheIndex) {
+      this.contextCacheIndex = currentIndex
+      this.contextCachePrevious = currentIndex > 0
+        ? lines.slice(Math.max(0, currentIndex - 4), currentIndex).reverse()
+        : []
+      this.contextCacheNext = currentIndex >= 0
+        ? lines.slice(currentIndex + 1, currentIndex + 6)
+        : lines.slice(0, 5)
+    }
 
     this.onStateChange({
       currentIndex,
-      previousLines,
+      previousLines: this.contextCachePrevious,
       currentLine,
-      nextLines,
+      nextLines: this.contextCacheNext,
       lineProgress,
       isInterlude
     })

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useMemo, useState } from 'react'
+import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLyricsStore } from '../stores/lyricsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -200,7 +200,12 @@ interface LyricsDisplayProps {
 }
 
 export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
-  const { lyrics, status, syncState, errorMessage } = useLyricsStore()
+  const lyrics = useLyricsStore(s => s.lyrics)
+  const status = useLyricsStore(s => s.status)
+  const errorMessage = useLyricsStore(s => s.errorMessage)
+  const currentIndex = useLyricsStore(s => s.syncState?.currentIndex ?? -1)
+  const lineProgress = useLyricsStore(s => s.syncState?.lineProgress ?? 0)
+  const isInterlude = useLyricsStore(s => s.syncState?.isInterlude ?? false)
   const fontSize = useSettingsStore(s => s.fontSize)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -236,16 +241,16 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
       el.removeEventListener('wheel', onWheel)
       el.removeEventListener('touchstart', onTouchStart)
     }
-  }, [markUserScrolled, lyrics]) // re-attach when lyrics change
+  }, [markUserScrolled])
 
   const handleSyncClick = useCallback(() => {
     setUserScrolled(false)
     if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current)
     // Immediately scroll to current line
-    if (syncState && syncState.currentIndex >= 0) {
-      scrollToLine(syncState.currentIndex)
+    if (currentIndex >= 0) {
+      scrollToLine(currentIndex)
     }
-  }, [syncState?.currentIndex])
+  }, [currentIndex])
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -254,11 +259,8 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
     }
   }, [])
 
-  // Read CSS glow color from theme
-  const glowColor = useMemo(() => {
-    const root = document.documentElement
-    return getComputedStyle(root).getPropertyValue('--glow').trim() || 'rgba(255, 255, 255, 0.3)'
-  }, [syncState?.currentIndex])
+  // Keep glow source dynamic from CSS variable while avoiding style reads on every sync tick.
+  const glowColor = 'var(--glow)'
 
   // ─── Reset scroll to top on new song ───────────────────────────────
   useEffect(() => {
@@ -277,20 +279,18 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
     const el = lineRefs.current.get(index)
     if (el && containerRef.current) {
       const container = containerRef.current
-      const elRect = el.getBoundingClientRect()
-      const containerRect = container.getBoundingClientRect()
       // Position the current line at ~40% from the top (visual center)
-      const target = container.scrollTop + (elRect.top - containerRect.top) - containerRect.height * 0.40
+      const target = el.offsetTop - container.clientHeight * 0.40
       springScrollTo(target)
     }
   }, [springScrollTo])
 
   // Auto-scroll to current line (only if user hasn't scrolled away)
   useEffect(() => {
-    if (syncState && syncState.currentIndex >= 0 && !userScrolled) {
-      scrollToLine(syncState.currentIndex)
+    if (currentIndex >= 0 && !userScrolled) {
+      scrollToLine(currentIndex)
     }
-  }, [syncState?.currentIndex, scrollToLine, userScrolled])
+  }, [currentIndex, scrollToLine, userScrolled])
 
   // ─── Initial Scroll Fix ────────────────────────────────────────────
   // When the app opens mid-song, lyrics load and syncState arrives but
@@ -310,33 +310,34 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
       hasInitialScrolled.current ||
       !lyrics ||
       lyrics.type !== 'synced' ||
-      !syncState ||
-      syncState.currentIndex < 0 ||
+      currentIndex < 0 ||
       userScrolled
     ) return
 
     // Try immediately
-    const el = lineRefs.current.get(syncState.currentIndex)
+    const el = lineRefs.current.get(currentIndex)
     if (el) {
-      scrollToLine(syncState.currentIndex)
+      scrollToLine(currentIndex)
       hasInitialScrolled.current = true
       return
     }
 
     // Refs not ready — retry after next frame + small delay
+    let timer: ReturnType<typeof setTimeout> | null = null
     const raf = requestAnimationFrame(() => {
-      const timer = setTimeout(() => {
-        if (syncState.currentIndex >= 0 && lineRefs.current.get(syncState.currentIndex)) {
-          scrollToLine(syncState.currentIndex)
+      timer = setTimeout(() => {
+        if (currentIndex >= 0 && lineRefs.current.get(currentIndex)) {
+          scrollToLine(currentIndex)
           hasInitialScrolled.current = true
         }
       }, 100)
-      // Cleanup
-      return () => clearTimeout(timer)
     })
 
-    return () => cancelAnimationFrame(raf)
-  }, [lyrics, syncState?.currentIndex, scrollToLine, userScrolled])
+    return () => {
+      cancelAnimationFrame(raf)
+      if (timer) clearTimeout(timer)
+    }
+  }, [lyrics, currentIndex, scrollToLine, userScrolled])
 
   // ─── Loading State ─────────────────────────
   if (status === 'loading') {
@@ -383,11 +384,6 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
 
   // ─── Synced Lyrics ────────────────────────
   if (lyrics?.type === 'synced') {
-    const currentIndex = syncState?.currentIndex ?? -1
-    const lineProgress = syncState?.lineProgress ?? 0
-
-    const isInterlude = syncState?.isInterlude ?? false
-
     return (
       <div className="lyrics-wrapper">
         <div
@@ -399,7 +395,10 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
           {lyrics.lines.map((line, i) => (
             <div
               key={i}
-              ref={el => { if (el) lineRefs.current.set(i, el) }}
+              ref={el => {
+                if (el) lineRefs.current.set(i, el)
+                else lineRefs.current.delete(i)
+              }}
               onClick={() => onSeek?.(line.startTimeMs)}
               style={{ cursor: onSeek ? 'pointer' : 'default' }}
             >
@@ -407,7 +406,7 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
                 text={line.text}
                 index={i}
                 currentIndex={currentIndex}
-                lineProgress={lineProgress}
+                lineProgress={i === currentIndex ? lineProgress : 0}
                 fontSize={fontSize}
                 glowColor={glowColor}
                 seekable={!!onSeek}

@@ -145,6 +145,7 @@ body {
     opacity 1.2s var(--ease-out),
     filter 0.5s var(--ease-out);
   transform: scale(1.15);
+  will-change: opacity, filter, transform;
 }
 
 .app-bg-overlay {
@@ -251,6 +252,7 @@ body {
   position: relative;
   /* Width is updated at 60fps by rAF, but color transitions smoothly with theme */
   transition: background 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width;
 }
 
 .progress-bar-fill::after {
@@ -278,4 +280,3 @@ body {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
-

@@ -11,10 +11,8 @@ import { useSettingsStore } from '../stores/settingsStore'
 
 export const CompactLyric: React.FC = () => {
   const isPlaying = usePlayerStore(s => s.isPlaying)
-  const syncState = useLyricsStore(s => s.syncState)
+  const currentLine = useLyricsStore(s => s.syncState?.currentLine?.text || '')
   const fontSize = useSettingsStore(s => s.fontSize)
-
-  const currentLine = syncState?.currentLine?.text || ''
 
   return (
     <div
