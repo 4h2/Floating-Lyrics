@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useLyricsStore } from '../stores/lyricsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useShallow } from 'zustand/react/shallow'
 
 /**
  * LyricsDisplay — Apple Music-inspired synced lyrics.
@@ -85,13 +86,14 @@ function computeLineVisuals(
   const absDistance = Math.abs(distance)
 
   if (absDistance === 0) {
-    const breathCurve = Math.sin(lineProgress * Math.PI * 0.85)
+    // Keep glow premium but stable from line start (no delayed intensity jump).
+    const breathCurve = Math.sin(lineProgress * Math.PI * 2)
     return {
       opacity: 1,
       // Scale is the ONLY size change — no fontSize change = no text reflow
       scale: 1.05,
       blur: 0,
-      glowIntensity: 0.6 + breathCurve * 0.4,
+      glowIntensity: 0.86 + breathCurve * 0.08,
       y: 0,
     }
   }
@@ -200,12 +202,16 @@ interface LyricsDisplayProps {
 }
 
 export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
-  const lyrics = useLyricsStore(s => s.lyrics)
-  const status = useLyricsStore(s => s.status)
-  const errorMessage = useLyricsStore(s => s.errorMessage)
-  const currentIndex = useLyricsStore(s => s.syncState?.currentIndex ?? -1)
-  const lineProgress = useLyricsStore(s => s.syncState?.lineProgress ?? 0)
-  const isInterlude = useLyricsStore(s => s.syncState?.isInterlude ?? false)
+  const { lyrics, status, errorMessage, currentIndex, lineProgress, isInterlude } = useLyricsStore(
+    useShallow((s) => ({
+      lyrics: s.lyrics,
+      status: s.status,
+      errorMessage: s.errorMessage,
+      currentIndex: s.syncState?.currentIndex ?? -1,
+      lineProgress: s.syncState?.lineProgress ?? 0,
+      isInterlude: s.syncState?.isInterlude ?? false,
+    }))
+  )
   const fontSize = useSettingsStore(s => s.fontSize)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -279,8 +285,10 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
     const el = lineRefs.current.get(index)
     if (el && containerRef.current) {
       const container = containerRef.current
+      const elRect = el.getBoundingClientRect()
+      const containerRect = container.getBoundingClientRect()
       // Position the current line at ~40% from the top (visual center)
-      const target = el.offsetTop - container.clientHeight * 0.40
+      const target = container.scrollTop + (elRect.top - containerRect.top) - containerRect.height * 0.40
       springScrollTo(target)
     }
   }, [springScrollTo])

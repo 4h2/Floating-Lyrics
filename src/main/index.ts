@@ -7,7 +7,9 @@ import {
   safeStorage,
   dialog,
   screen,
-  net
+  net,
+  clipboard,
+  nativeImage
 } from 'electron'
 import { join } from 'path'
 import { createServer, IncomingMessage, ServerResponse } from 'http'
@@ -420,6 +422,36 @@ function setupIPC(): void {
   })
 
   // ── Dialog ───────────────────────────────────────
+  // ── Clipboard ────────────────────────────────────
+  ipcMain.handle('clipboard:writeImage', async (_event, dataUrl: string) => {
+    try {
+      const img = nativeImage.createFromDataURL(dataUrl)
+      clipboard.writeImage(img)
+      return true
+    } catch (e) {
+      console.error('[Clipboard] Failed to write image:', e)
+      return false
+    }
+  })
+
+  ipcMain.handle('dialog:saveFile', async (_event, defaultName: string, dataUrl: string) => {
+    if (!mainWindow) return null
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: defaultName,
+      filters: [{ name: 'PNG Image', extensions: ['png'] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    try {
+      const base64 = dataUrl.replace(/^data:image\/png;base64,/, '')
+      const { writeFileSync } = require('fs')
+      writeFileSync(result.filePath, Buffer.from(base64, 'base64'))
+      return result.filePath
+    } catch (e) {
+      console.error('[SaveFile] Failed:', e)
+      return null
+    }
+  })
+
   ipcMain.handle('dialog:selectFolder', async () => {
     if (!mainWindow) return null
     const result = await dialog.showOpenDialog(mainWindow, {

@@ -5,6 +5,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { LyricsDisplay } from './components/LyricsDisplay'
 import { ProgressBar } from './components/ProgressBar'
 import { CompactLyric } from './components/CompactLyric'
+import { ShareButton } from './components/ShareButton'
 import { SettingsPanel } from './components/SettingsPanel'
 import { usePlayerStore } from './stores/playerStore'
 import { useLyricsStore } from './stores/lyricsStore'
@@ -379,6 +380,8 @@ export const App: React.FC = () => {
                   {!isPlaying && track && (
                     <span style={{ fontSize: '11px', opacity: 0.3, flexShrink: 0 }}>PAUSED</span>
                   )}
+
+                  <ShareButton />
                 </div>
 
                 {/* Progress Bar */}

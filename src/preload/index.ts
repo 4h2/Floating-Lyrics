@@ -42,6 +42,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url: string) => ipcRenderer.send('shell:openExternal', url)
   },
   dialog: {
-    selectFolder: () => ipcRenderer.invoke('dialog:selectFolder')
+    selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+    saveFile: (defaultName: string, dataUrl: string) =>
+      ipcRenderer.invoke('dialog:saveFile', defaultName, dataUrl)
+  },
+  clipboard: {
+    writeImage: (dataUrl: string) => ipcRenderer.invoke('clipboard:writeImage', dataUrl)
   }
 })

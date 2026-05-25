@@ -117,12 +117,13 @@ export class LyricsSyncEngine {
       }
     }
 
-    // Smart diffing: only emit if something changed meaningfully
-    // Index changes are always emitted. Progress changes are batched (threshold 0.01 = ~1%)
+    // Smart diffing: only emit if something changed meaningfully.
+    // Keep a very small progress threshold so long lyric lines still feel
+    // continuously animated instead of stepping.
     if (!force) {
       const indexChanged = currentIndex !== this.lastEmittedIndex
       const progressDelta = Math.abs(lineProgress - this.lastEmittedProgress)
-      if (!indexChanged && progressDelta < 0.015) return
+      if (!indexChanged && progressDelta < 0.001) return
     }
 
     this.lastEmittedIndex = currentIndex
