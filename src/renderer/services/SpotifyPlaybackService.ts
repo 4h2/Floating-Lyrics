@@ -70,6 +70,56 @@ export class SpotifyPlaybackService {
   }
 
   /**
+   * Get the user's playback queue. Returns the next 3 tracks.
+   */
+  async getQueue(): Promise<TrackInfo[]> {
+    if (!this.tokens) return []
+
+    try {
+      if (Date.now() >= this.tokens.expiresAt - 60000) {
+        await this.refreshAccessToken()
+      }
+
+      const response = await fetch(`${SPOTIFY_API_BASE}/me/player/queue`, {
+        headers: {
+          Authorization: `Bearer ${this.tokens!.accessToken}`
+        }
+      })
+
+      if (!response.ok) return []
+
+      const data = await response.json() as {
+        queue: Array<{
+          id: string
+          name: string
+          artists: Array<{ name: string }>
+          album: { name: string; images: Array<{ url: string; width?: number }> }
+          duration_ms: number
+        }>
+      }
+
+      return (data.queue || []).slice(0, 3).map(item => {
+        const images = [...item.album.images].sort((a, b) => (b.width || 0) - (a.width || 0))
+        const best = images[0] || null
+        const small = images.find(img => img.width && img.width <= 300) || best
+        return {
+          id: item.id,
+          title: item.name,
+          artist: item.artists.map(a => a.name).join(', '),
+          artistsList: item.artists.map(a => a.name),
+          album: item.album.name,
+          albumArtUrl: best?.url || null,
+          albumArtUrlSmall: small?.url || null,
+          durationMs: item.duration_ms,
+        }
+      })
+    } catch (e) {
+      console.error('[SpotifyPlayback] Queue error:', e)
+      return []
+    }
+  }
+
+  /**
    * Exchange authorization code for tokens using PKCE flow
    */
   async exchangeCode(code: string, codeVerifier: string, redirectUri: string): Promise<SpotifyTokens> {

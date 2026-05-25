@@ -6,6 +6,7 @@ import { LyricsDisplay } from './components/LyricsDisplay'
 import { ProgressBar } from './components/ProgressBar'
 import { CompactLyric } from './components/CompactLyric'
 import { ShareButton } from './components/ShareButton'
+import { QueuePreview } from './components/QueuePreview'
 import { SettingsPanel } from './components/SettingsPanel'
 import { usePlayerStore } from './stores/playerStore'
 import { useLyricsStore } from './stores/lyricsStore'
@@ -47,6 +48,7 @@ export const App: React.FC = () => {
   const setConnected = usePlayerStore(s => s.setConnected)
   const setPlayerError = usePlayerStore(s => s.setError)
   const resetPlayer = usePlayerStore(s => s.reset)
+  const setQueue = usePlayerStore(s => s.setQueue)
 
   // Lyrics state/actions
   const setLyrics = useLyricsStore(s => s.setLyrics)
@@ -210,6 +212,9 @@ export const App: React.FC = () => {
     setLyricsStatus('loading')
     syncEngine.current.setLyrics(null)
 
+    // Fetch queue (non-blocking)
+    playbackService.current.getQueue().then(q => setQueue(q)).catch(() => {})
+
     try {
       const result = await lyricsService.current.search({
         title: track.title,
@@ -227,7 +232,7 @@ export const App: React.FC = () => {
       console.error('[Lyrics] Fetch error:', e)
       setLyricsError('Failed to fetch lyrics')
     }
-  }, [generateFromAlbumArt, resetTheme, setLyricsStatus, setLyrics, setLyricsError])
+  }, [generateFromAlbumArt, resetTheme, setLyricsStatus, setLyrics, setLyricsError, setQueue])
 
   // ─── Login (just tells main process to start the flow) ─────────────
 
@@ -388,6 +393,9 @@ export const App: React.FC = () => {
                 {showProgressBar && track && mode === 'expanded' && (
                   <ProgressBar />
                 )}
+
+                {/* Queue Preview */}
+                {mode === 'expanded' && <QueuePreview />}
 
                 {/* Lyrics */}
                 <LyricsDisplay onSeek={handleSeek} />
