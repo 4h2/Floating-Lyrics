@@ -11,7 +11,7 @@ export interface AppSettings {
   theme: 'auto' | 'dark' | 'light'
   musixmatchEnabled: boolean
   lrcFolderPath: string
-  mode: 'compact' | 'expanded'
+  mode: 'compact' | 'expanded' | 'fullscreen'
   /** 0 = hidden, 100 = vivid/sharp. Controls blur, brightness, opacity of album art bg */
   albumArtPresence: number
   showProgressBar: boolean

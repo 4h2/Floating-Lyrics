@@ -1,0 +1,188 @@
+/* ─── Fullscreen / Ambient Mode ──────────────────────────────────────────────
+   Split-panel layout: album art on the left, lyrics on the right.
+   Designed for studio monitors, bedroom TVs, and projectors. */
+
+.fullscreen-view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.fullscreen-view.cursor-hidden {
+  cursor: none;
+}
+
+/* ─── Split Layout ───────────────────────────────────────────────────────── */
+
+.fullscreen-layout {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* Left Panel: Album Art + Track Info */
+.fullscreen-left {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+/* Right Panel: Lyrics */
+.fullscreen-right {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-right: 20px;
+}
+
+/* ─── Album Art ──────────────────────────────────────────────────────────── */
+
+.fullscreen-art-wrapper {
+  width: min(320px, 70%);
+  aspect-ratio: 1;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 0 80px rgba(var(--glow-rgb, 139, 92, 246), 0.15);
+  flex-shrink: 0;
+}
+
+.fullscreen-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fullscreen-art-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 64px;
+  opacity: 0.2;
+}
+
+/* ─── Track Info ─────────────────────────────────────────────────────────── */
+
+.fullscreen-track-info {
+  text-align: center;
+  width: 100%;
+  max-width: 350px;
+}
+
+.fullscreen-title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.fullscreen-artist {
+  font-size: 14px;
+  opacity: 0.5;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fullscreen-paused {
+  font-size: 10px;
+  opacity: 0.2;
+  letter-spacing: 2px;
+  margin-top: 8px;
+}
+
+/* ─── Progress Bar ───────────────────────────────────────────────────────── */
+
+.fullscreen-progress {
+  flex-shrink: 0;
+  padding: 0 40px 24px 40px;
+}
+
+/* ─── Exit Button ────────────────────────────────────────────────────────── */
+
+.fullscreen-exit-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 60;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  transition: background 0.2s, color 0.2s;
+}
+
+.fullscreen-exit-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ─── Responsive: narrow fullscreen (portrait monitors) ──────────────────── */
+
+@media (max-width: 800px) {
+  .fullscreen-layout {
+    flex-direction: column;
+  }
+
+  .fullscreen-left {
+    width: 100%;
+    padding: 24px 20px 12px 20px;
+    gap: 12px;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+  }
+
+  .fullscreen-art-wrapper {
+    width: 64px;
+    min-width: 64px;
+    border-radius: 10px;
+  }
+
+  .fullscreen-track-info {
+    text-align: left;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .fullscreen-title {
+    font-size: 16px;
+  }
+
+  .fullscreen-artist {
+    font-size: 12px;
+  }
+
+  .fullscreen-right {
+    padding-right: 0;
+  }
+
+  .fullscreen-progress {
+    padding: 0 20px 16px 20px;
+  }
+}

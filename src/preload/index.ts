@@ -27,7 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     setAlwaysOnTop: (value: boolean) => ipcRenderer.send('window:setAlwaysOnTop', value),
     isAlwaysOnTop: () => ipcRenderer.invoke('window:isAlwaysOnTop'),
     setOpacity: (value: number) => ipcRenderer.send('window:setOpacity', value),
-    toggleFullscreen: () => ipcRenderer.send('window:toggleFullscreen'),
+    enterFullscreen: () => ipcRenderer.send('window:enterFullscreen'),
+    exitFullscreen: () => ipcRenderer.send('window:exitFullscreen'),
     startDrag: () => ipcRenderer.send('window:startDrag'),
     getWindowBounds: () => ipcRenderer.invoke('window:getBounds'),
     setWindowBounds: (bounds: { x?: number; y?: number; width?: number; height?: number }) =>

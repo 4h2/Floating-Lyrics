@@ -7,6 +7,7 @@ import { ProgressBar } from './components/ProgressBar'
 import { CompactLyric } from './components/CompactLyric'
 import { ShareButton } from './components/ShareButton'
 import { QueuePreview } from './components/QueuePreview'
+import { FullscreenView } from './components/FullscreenView'
 import { SettingsPanel } from './components/SettingsPanel'
 import { usePlayerStore } from './stores/playerStore'
 import { useLyricsStore } from './stores/lyricsStore'
@@ -27,6 +28,7 @@ import './styles/titlebar.css'
 import './styles/lyrics.css'
 import './styles/login.css'
 import './styles/settings.css'
+import './styles/fullscreen.css'
 
 // ─── App State ─────────────────────────────────────────────────────────────
 
@@ -267,6 +269,18 @@ export const App: React.FC = () => {
     updateSetting('mode', next)
   }, [mode, updateSetting])
 
+  // ─── Fullscreen Enter/Exit ─────────────────────────────────────────
+
+  const enterFullscreen = useCallback(() => {
+    updateSetting('mode', 'fullscreen')
+    window.electronAPI.window.enterFullscreen()
+  }, [updateSetting])
+
+  const exitFullscreen = useCallback(() => {
+    updateSetting('mode', 'expanded')
+    window.electronAPI.window.exitFullscreen()
+  }, [updateSetting])
+
   // ─── Clear Cache ───────────────────────────────────────────────────
 
   const handleClearCache = useCallback(() => {
@@ -308,7 +322,12 @@ export const App: React.FC = () => {
 
       {/* Content */}
       <div className="app-content">
-        <TitleBar onSettingsClick={() => setSettingsOpen(true)} />
+        {mode !== 'fullscreen' && (
+          <TitleBar
+            onSettingsClick={() => setSettingsOpen(true)}
+            onFullscreen={enterFullscreen}
+          />
+        )}
 
         {view === 'login' ? (
           <LoginScreen onLogin={handleLogin} />
@@ -487,6 +506,11 @@ export const App: React.FC = () => {
               </div>
             </div>
           </>
+        )}
+
+        {/* ─── Fullscreen Layer ─── */}
+        {view === 'player' && mode === 'fullscreen' && (
+          <FullscreenView onExit={exitFullscreen} onSeek={handleSeek} />
         )}
 
         {/* Error toast */}

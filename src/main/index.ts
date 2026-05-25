@@ -41,7 +41,7 @@ interface AppSettings {
   musixmatchEnabled: boolean
   lrcFolderPath: string
   windowBounds: { x: number; y: number; width: number; height: number } | null
-  mode: 'compact' | 'expanded'
+  mode: 'compact' | 'expanded' | 'fullscreen'
   globalShortcut: string
   albumArtPresence: number
   showProgressBar: boolean
@@ -391,9 +391,26 @@ function setupIPC(): void {
     saveSettings(settings)
   })
 
-  ipcMain.on('window:toggleFullscreen', () => {
+  // Fullscreen: use maximize + borderless approach (setFullScreen breaks transparency on Windows)
+  let preFullscreenBounds: { x: number; y: number; width: number; height: number } | null = null
+
+  ipcMain.on('window:enterFullscreen', () => {
     if (!mainWindow) return
-    mainWindow.setFullScreen(!mainWindow.isFullScreen())
+    preFullscreenBounds = mainWindow.getBounds()
+    mainWindow.setResizable(true)
+    mainWindow.maximize()
+    mainWindow.setResizable(false)
+  })
+
+  ipcMain.on('window:exitFullscreen', () => {
+    if (!mainWindow) return
+    mainWindow.setResizable(true)
+    if (preFullscreenBounds) {
+      mainWindow.setBounds(preFullscreenBounds)
+      preFullscreenBounds = null
+    } else {
+      mainWindow.unmaximize()
+    }
   })
 
   ipcMain.on('window:startDrag', () => { /* CSS -webkit-app-region: drag */ })
