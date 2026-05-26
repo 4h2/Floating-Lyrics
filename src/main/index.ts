@@ -391,25 +391,26 @@ function setupIPC(): void {
     saveSettings(settings)
   })
 
-  // Fullscreen: use maximize + borderless approach (setFullScreen breaks transparency on Windows)
+  // Fullscreen: use native setFullScreen to hide the Windows taskbar
   let preFullscreenBounds: { x: number; y: number; width: number; height: number } | null = null
 
   ipcMain.on('window:enterFullscreen', () => {
     if (!mainWindow) return
     preFullscreenBounds = mainWindow.getBounds()
-    mainWindow.setResizable(true)
-    mainWindow.maximize()
-    mainWindow.setResizable(false)
+    mainWindow.setFullScreen(true)
   })
 
   ipcMain.on('window:exitFullscreen', () => {
     if (!mainWindow) return
-    mainWindow.setResizable(true)
+    mainWindow.setFullScreen(false)
     if (preFullscreenBounds) {
-      mainWindow.setBounds(preFullscreenBounds)
-      preFullscreenBounds = null
-    } else {
-      mainWindow.unmaximize()
+      // Small delay to let the window exit fullscreen before restoring bounds
+      setTimeout(() => {
+        if (mainWindow && preFullscreenBounds) {
+          mainWindow.setBounds(preFullscreenBounds)
+          preFullscreenBounds = null
+        }
+      }, 100)
     }
   })
 
