@@ -424,38 +424,62 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 2px 0 6px 0;
+  gap: 2px;
+  padding: 0 0 8px 0;
   flex-shrink: 0;
 }
 
+/* Base button — mirrors .titlebar-btn language exactly */
 .playback-btn {
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.45);
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, color 0.15s;
+  border-radius: var(--radius-sm);
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+  /* No box-shadow, no border — matches the ghost aesthetic */
 }
 
-.playback-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+/* Secondary buttons (prev / next) */
+.playback-btn-side {
+  width: 30px;
+  height: 30px;
+  opacity: 0.7;
 }
 
-.playback-btn-main {
-  width: 36px;
-  height: 36px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+.playback-btn-side:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  opacity: 1;
 }
 
-.playback-btn-main:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
+/* Primary button (play / pause) — the focal element */
+.playback-btn-primary {
+  width: 34px;
+  height: 34px;
+  /* Soft glass border, matching share-btn DNA */
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  opacity: 0.85;
+  /* Slight backdrop blur for depth */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* Rounded square — same --radius-sm as the rest of the app */
+  border-radius: var(--radius-sm);
+  margin: 0 4px;
+}
+
+.playback-btn-primary:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  opacity: 1;
+  /* Subtle accent glow on hover — ties into the dynamic theme */
+  box-shadow: 0 0 16px rgba(var(--glow-rgb, 139, 92, 246), 0.18);
 }

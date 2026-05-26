@@ -94,6 +94,9 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     root.style.setProperty('--glow-strong', colors.glowStrong)
     root.style.setProperty('--gradient-start', colors.gradientStart)
     root.style.setProperty('--gradient-end', colors.gradientEnd)
+    // Expose raw R,G,B from glow for rgba() usage (e.g. box-shadow on playback controls)
+    const glowRgb = extractRgbFromHsla(colors.glow)
+    root.style.setProperty('--glow-rgb', glowRgb)
   },
 
   reset: () => {
@@ -211,4 +214,26 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   }
 
   return [Math.round(h * 360), s, l]
+}
+
+/**
+ * Parse an hsla() string (e.g. "hsla(260, 0.5, 0.7, 0.5)") into "R,G,B"
+ * for use as a CSS custom property with rgba().
+ */
+function extractRgbFromHsla(hsla: string): string {
+  // Match: hsla(h, s, l, a) — values may be decimals or percentages
+  const m = hsla.match(/hsla?\(\s*([\d.]+)[,\s]+([\d.]+%?)[,\s]+([\d.]+%?)/)
+  if (!m) return '139, 92, 246' // default purple fallback
+
+  const h = parseFloat(m[1])
+  const s = m[2].endsWith('%') ? parseFloat(m[2]) / 100 : parseFloat(m[2])
+  const l = m[3].endsWith('%') ? parseFloat(m[3]) / 100 : parseFloat(m[3])
+
+  // HSL → RGB
+  const a = s * Math.min(l, 1 - l)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    return Math.round((l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)) * 255)
+  }
+  return `${f(0)}, ${f(8)}, ${f(4)}`
 }
