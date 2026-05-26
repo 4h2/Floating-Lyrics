@@ -417,3 +417,45 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ─── Playback Controls ──────────────────────────────────────────────────── */
+
+.playback-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px 0 6px 0;
+  flex-shrink: 0;
+}
+
+.playback-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.playback-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.playback-btn-main {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.playback-btn-main:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}

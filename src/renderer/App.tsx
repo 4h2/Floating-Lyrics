@@ -7,6 +7,7 @@ import { ProgressBar } from './components/ProgressBar'
 import { CompactLyric } from './components/CompactLyric'
 import { ShareButton } from './components/ShareButton'
 import { QueuePreview } from './components/QueuePreview'
+import { PlaybackControls } from './components/PlaybackControls'
 import { FullscreenView } from './components/FullscreenView'
 import { SettingsPanel } from './components/SettingsPanel'
 import { usePlayerStore } from './stores/playerStore'
@@ -70,6 +71,7 @@ export const App: React.FC = () => {
   const mode = useSettingsStore(s => s.mode)
   const albumArtPresence = useSettingsStore(s => s.albumArtPresence)
   const showProgressBar = useSettingsStore(s => s.showProgressBar)
+  const showPlaybackControls = useSettingsStore(s => s.showPlaybackControls)
 
   // Theme actions/state used by App
   const themeColors = useThemeStore(s => s.colors)
@@ -262,6 +264,34 @@ export const App: React.FC = () => {
     playbackService.current.seekTo(positionMs)
   }, [])
 
+  // ─── Optimistic Playback Controls ──────────────────────────────────
+  // Immediately update the store state so the UI reacts instantly,
+  // then fire the API call. The next poll will confirm/correct.
+
+  const handlePlayPause = useCallback(() => {
+    const current = usePlayerStore.getState().isPlaying
+    // Optimistic: flip immediately
+    setPlaying(!current)
+    syncEngine.current.updateProgress(
+      usePlayerStore.getState().progressMs + (performance.now() - usePlayerStore.getState().receivedAt),
+      !current
+    )
+    playbackService.current.playPause(current)
+  }, [setPlaying])
+
+  const handleNext = useCallback(() => {
+    // Optimistic: stop current sync, show loading
+    setPlaying(false)
+    syncEngine.current.updateProgress(0, false)
+    playbackService.current.nextTrack()
+  }, [setPlaying])
+
+  const handlePrev = useCallback(() => {
+    setPlaying(false)
+    syncEngine.current.updateProgress(0, false)
+    playbackService.current.prevTrack()
+  }, [setPlaying])
+
   // ─── Toggle Expanded / Compact Mode ────────────────────────────────
 
   const toggleMode = useCallback(() => {
@@ -413,6 +443,15 @@ export const App: React.FC = () => {
                   <ProgressBar />
                 )}
 
+                {/* Playback Controls */}
+                {showPlaybackControls && track && mode === 'expanded' && (
+                  <PlaybackControls
+                    onPlayPause={handlePlayPause}
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                  />
+                )}
+
                 {/* Queue Preview */}
                 {mode === 'expanded' && <QueuePreview />}
 
@@ -510,7 +549,13 @@ export const App: React.FC = () => {
 
         {/* ─── Fullscreen Layer ─── */}
         {view === 'player' && mode === 'fullscreen' && (
-          <FullscreenView onExit={exitFullscreen} onSeek={handleSeek} />
+          <FullscreenView
+            onExit={exitFullscreen}
+            onSeek={handleSeek}
+            onPlayPause={handlePlayPause}
+            onNext={handleNext}
+            onPrev={handlePrev}
+          />
         )}
 
         {/* Error toast */}

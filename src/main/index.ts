@@ -45,6 +45,7 @@ interface AppSettings {
   globalShortcut: string
   albumArtPresence: number
   showProgressBar: boolean
+  showPlaybackControls: boolean
 }
 
 const defaultSettings: AppSettings = {
@@ -60,6 +61,7 @@ const defaultSettings: AppSettings = {
   globalShortcut: 'Ctrl+Shift+L',
   albumArtPresence: 70,
   showProgressBar: true,
+  showPlaybackControls: true,
 }
 
 function loadSettings(): AppSettings {

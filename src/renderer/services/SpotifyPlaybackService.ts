@@ -73,6 +73,76 @@ export class SpotifyPlaybackService {
   }
 
   /**
+   * Toggle play/pause on the active device.
+   */
+  async playPause(currentlyPlaying: boolean): Promise<void> {
+    if (!this.tokens) return
+    try {
+      if (Date.now() >= this.tokens.expiresAt - 60000) {
+        await this.refreshAccessToken()
+      }
+      const endpoint = currentlyPlaying ? 'pause' : 'play'
+      const response = await fetch(`${SPOTIFY_API_BASE}/me/player/${endpoint}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${this.tokens.accessToken}` },
+      })
+      if (response.status === 401) { this.onAuthError?.(); return }
+      // Force an immediate poll after a short delay to sync state
+      setTimeout(() => this.forcePoll(), 300)
+    } catch (e) {
+      console.error('[SpotifyPlayback] Play/pause error:', e)
+    }
+  }
+
+  /**
+   * Skip to the next track.
+   */
+  async nextTrack(): Promise<void> {
+    if (!this.tokens) return
+    try {
+      if (Date.now() >= this.tokens.expiresAt - 60000) {
+        await this.refreshAccessToken()
+      }
+      const response = await fetch(`${SPOTIFY_API_BASE}/me/player/next`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.tokens.accessToken}` },
+      })
+      if (response.status === 401) { this.onAuthError?.(); return }
+      // Force poll after skip to pick up new track quickly
+      setTimeout(() => this.forcePoll(), 500)
+    } catch (e) {
+      console.error('[SpotifyPlayback] Next track error:', e)
+    }
+  }
+
+  /**
+   * Go back to the previous track.
+   */
+  async prevTrack(): Promise<void> {
+    if (!this.tokens) return
+    try {
+      if (Date.now() >= this.tokens.expiresAt - 60000) {
+        await this.refreshAccessToken()
+      }
+      const response = await fetch(`${SPOTIFY_API_BASE}/me/player/previous`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.tokens.accessToken}` },
+      })
+      if (response.status === 401) { this.onAuthError?.(); return }
+      setTimeout(() => this.forcePoll(), 500)
+    } catch (e) {
+      console.error('[SpotifyPlayback] Previous track error:', e)
+    }
+  }
+
+  /**
+   * Force an immediate poll outside the regular interval.
+   */
+  forcePoll(): void {
+    this.poll()
+  }
+
+  /**
    * Get the user's playback queue. Returns the next 3 tracks.
    */
   async getQueue(): Promise<TrackInfo[]> {

@@ -105,6 +105,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
             </div>
           </div>
 
+          <div className="setting-row">
+            <div className="setting-row-header">
+              <span className="setting-label">Playback Controls</span>
+              <button
+                className={`setting-toggle ${settings.showPlaybackControls ? 'active' : ''}`}
+                onClick={() => settings.updateSetting('showPlaybackControls', !settings.showPlaybackControls)}
+              >
+                <div className="setting-toggle-knob" />
+              </button>
+            </div>
+          </div>
+
         </div>
 
         {/* Lyrics */}

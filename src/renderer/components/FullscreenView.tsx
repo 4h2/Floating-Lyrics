@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LyricsDisplay } from './LyricsDisplay'
 import { ProgressBar } from './ProgressBar'
+import { PlaybackControls } from './PlaybackControls'
 import { QueuePreview } from './QueuePreview'
 import { usePlayerStore } from '../stores/playerStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -16,12 +17,16 @@ import { useSettingsStore } from '../stores/settingsStore'
 interface FullscreenViewProps {
   onExit: () => void
   onSeek: (positionMs: number) => void
+  onPlayPause: () => void
+  onNext: () => void
+  onPrev: () => void
 }
 
-export const FullscreenView: React.FC<FullscreenViewProps> = ({ onExit, onSeek }) => {
+export const FullscreenView: React.FC<FullscreenViewProps> = ({ onExit, onSeek, onPlayPause, onNext, onPrev }) => {
   const track = usePlayerStore(s => s.track)
   const isPlaying = usePlayerStore(s => s.isPlaying)
   const showProgressBar = useSettingsStore(s => s.showProgressBar)
+  const showPlaybackControls = useSettingsStore(s => s.showPlaybackControls)
 
   const [showControls, setShowControls] = useState(true)
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -112,6 +117,15 @@ export const FullscreenView: React.FC<FullscreenViewProps> = ({ onExit, onSeek }
               )}
             </motion.div>
           </AnimatePresence>
+
+          {/* Playback Controls in fullscreen */}
+          {showPlaybackControls && track && (
+            <PlaybackControls
+              onPlayPause={onPlayPause}
+              onNext={onNext}
+              onPrev={onPrev}
+            />
+          )}
 
           {/* Queue in fullscreen */}
           <QueuePreview />
