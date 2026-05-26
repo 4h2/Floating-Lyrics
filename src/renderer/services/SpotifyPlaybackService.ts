@@ -14,6 +14,8 @@ export class SpotifyPlaybackService {
   private clientId: string = ''
   private pollTimer: ReturnType<typeof setInterval> | null = null
   private lastTrackId: string | null = null
+  private lastIsPlaying: boolean | null = null
+  private refreshPromise: Promise<void> | null = null
 
   // Callbacks
   public onPlaybackUpdate: ((info: PlaybackInfo) => void) | null = null
@@ -32,6 +34,7 @@ export class SpotifyPlaybackService {
   clearTokens(): void {
     this.tokens = null
     this.lastTrackId = null
+    this.lastIsPlaying = null
   }
 
   /**
@@ -203,11 +206,15 @@ export class SpotifyPlaybackService {
 
       this.onPlaybackUpdate?.(playbackInfo)
 
-      // Adjust polling rate when paused
-      if (this.pollTimer) {
-        clearInterval(this.pollTimer)
-        const interval = state.is_playing ? POLL_INTERVAL_MS : POLL_INTERVAL_PAUSED_MS
-        this.pollTimer = setInterval(() => this.poll(), interval)
+      // Adjust polling rate only when play state changes (not every tick)
+      const isPlayingNow = state.is_playing
+      if (isPlayingNow !== this.lastIsPlaying) {
+        this.lastIsPlaying = isPlayingNow
+        if (this.pollTimer) {
+          clearInterval(this.pollTimer)
+          const interval = isPlayingNow ? POLL_INTERVAL_MS : POLL_INTERVAL_PAUSED_MS
+          this.pollTimer = setInterval(() => this.poll(), interval)
+        }
       }
     } catch (e) {
       console.error('[SpotifyPlayback] Poll error:', e)
@@ -233,39 +240,52 @@ export class SpotifyPlaybackService {
   }
 
   private async refreshAccessToken(): Promise<void> {
+    // Guard against concurrent refresh calls (poll, getQueue, seekTo can race)
+    if (this.refreshPromise) {
+      return this.refreshPromise
+    }
+
     if (!this.tokens?.refreshToken) {
       this.onAuthError?.()
       return
     }
 
-    try {
-      const response = await fetch(SPOTIFY_TOKEN_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: this.tokens.refreshToken,
-          client_id: this.clientId,
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch(SPOTIFY_TOKEN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: this.tokens!.refreshToken,
+            client_id: this.clientId,
+          })
         })
-      })
 
-      if (!response.ok) {
+        if (!response.ok) {
+          this.onAuthError?.()
+          return
+        }
+
+        const data = await response.json()
+        this.tokens = {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token || this.tokens!.refreshToken,
+          expiresAt: Date.now() + data.expires_in * 1000
+        }
+
+        // Persist the refreshed tokens
+        await window.electronAPI.auth.saveTokens(this.tokens)
+      } catch (e) {
+        console.error('[SpotifyPlayback] Token refresh failed:', e)
         this.onAuthError?.()
-        return
       }
+    })()
 
-      const data = await response.json()
-      this.tokens = {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token || this.tokens.refreshToken,
-        expiresAt: Date.now() + data.expires_in * 1000
-      }
-
-      // Persist the refreshed tokens
-      await window.electronAPI.auth.saveTokens(this.tokens)
-    } catch (e) {
-      console.error('[SpotifyPlayback] Token refresh failed:', e)
-      this.onAuthError?.()
+    try {
+      await this.refreshPromise
+    } finally {
+      this.refreshPromise = null
     }
   }
 
