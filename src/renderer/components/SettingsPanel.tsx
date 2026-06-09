@@ -159,6 +159,19 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, o
               </button>
             </div>
           </div>
+
+          <div className="setting-row">
+            <div className="setting-row-header">
+              <span className="setting-label">Karaoke Mode</span>
+              <button
+                className={`setting-toggle ${settings.karaokeEnabled ? 'active' : ''}`}
+                onClick={() => settings.updateSetting('karaokeEnabled', !settings.karaokeEnabled)}
+              >
+                <div className="setting-toggle-knob" />
+              </button>
+            </div>
+            <div className="setting-hint">Word-by-word highlight (requires Musixmatch)</div>
+          </div>
         </div>
 
         {/* Window */}

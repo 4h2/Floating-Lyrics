@@ -156,13 +156,41 @@ export class LyricsSyncEngine {
         : lines.slice(0, 5)
     }
 
+    // ─── Word-level karaoke timing ──────────────────────────────────
+    let activeWordIndex = -1
+    let wordProgress = 0
+
+    if (currentLine?.words && currentLine.words.length > 0) {
+      const lineStart = currentLine.startTimeMs
+      const elapsedInLine = currentProgress - lineStart // ms since line started
+
+      // Find which word we're on (binary search would be overkill for ~10 words)
+      for (let i = currentLine.words.length - 1; i >= 0; i--) {
+        if (elapsedInLine >= currentLine.words[i].offsetMs) {
+          activeWordIndex = i
+          // Calculate progress within this word (0..1)
+          const wordStart = currentLine.words[i].offsetMs
+          const wordEnd = i < currentLine.words.length - 1
+            ? currentLine.words[i + 1].offsetMs
+            : (currentLine.endTimeMs ? currentLine.endTimeMs - lineStart : wordStart + 500)
+          const wordDuration = wordEnd - wordStart
+          if (wordDuration > 0) {
+            wordProgress = Math.max(0, Math.min(1, (elapsedInLine - wordStart) / wordDuration))
+          }
+          break
+        }
+      }
+    }
+
     this.onStateChange({
       currentIndex,
       previousLines: this.contextCachePrevious,
       currentLine,
       nextLines: this.contextCacheNext,
       lineProgress,
-      isInterlude
+      isInterlude,
+      activeWordIndex,
+      wordProgress,
     })
   }
 

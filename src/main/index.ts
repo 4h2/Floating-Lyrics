@@ -46,6 +46,7 @@ interface AppSettings {
   albumArtPresence: number
   showProgressBar: boolean
   showPlaybackControls: boolean
+  karaokeEnabled: boolean
 }
 
 const defaultSettings: AppSettings = {
@@ -62,6 +63,7 @@ const defaultSettings: AppSettings = {
   albumArtPresence: 70,
   showProgressBar: true,
   showPlaybackControls: true,
+  karaokeEnabled: true,
 }
 
 function loadSettings(): AppSettings {

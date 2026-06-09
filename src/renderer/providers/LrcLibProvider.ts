@@ -3,7 +3,7 @@
 // API docs: https://lrclib.net/docs
 // This is the primary online provider — reliable, legal, and free.
 
-import type { LyricsProvider, TrackQuery, Lyrics, SyncedLyricsLine } from '../types/lyrics'
+import type { LyricsProvider, TrackQuery, Lyrics, SyncedLyricsLine, WordTiming } from '../types/lyrics'
 
 const LRCLIB_BASE = 'https://lrclib.net/api'
 const TIMEOUT_MS = 4000
@@ -112,11 +112,14 @@ export class LrcLibProvider implements LyricsProvider {
   }
 
   /**
-   * Parses LRC format synced lyrics into internal format
+   * Parses LRC format synced lyrics into internal format.
+   * Supports Enhanced LRC with word-level timestamps: <mm:ss.xx>word
    */
   private parseSyncedLyrics(raw: string): SyncedLyricsLine[] {
     const lines: SyncedLyricsLine[] = []
     const lineRegex = /^\[(\d{1,3}):(\d{2})\.(\d{2,3})\]\s*(.*)$/
+    // Enhanced LRC word tag: <mm:ss.xx> before each word
+    const wordTagRegex = /<(\d{1,3}):(\d{2})\.(\d{2,3})>/g
 
     for (const rawLine of raw.split('\n')) {
       const trimmed = rawLine.trim()
@@ -131,11 +134,50 @@ export class LrcLibProvider implements LyricsProvider {
       if (match[3].length === 2) ms *= 10
 
       const startTimeMs = (minutes * 60 + seconds) * 1000 + ms
-      const text = match[4]
+      const textContent = match[4]
 
-      if (text === '') continue
+      if (textContent === '') continue
 
-      lines.push({ startTimeMs, text })
+      // Try to parse Enhanced LRC word-level timestamps
+      const words: WordTiming[] = []
+      let hasWordTags = false
+      let wordMatch: RegExpExecArray | null
+
+      // Reset regex state
+      wordTagRegex.lastIndex = 0
+
+      while ((wordMatch = wordTagRegex.exec(textContent)) !== null) {
+        hasWordTags = true
+        const wMin = parseInt(wordMatch[1], 10)
+        const wSec = parseInt(wordMatch[2], 10)
+        let wMs = parseInt(wordMatch[3], 10)
+        if (wordMatch[3].length === 2) wMs *= 10
+
+        const wordAbsoluteMs = (wMin * 60 + wSec) * 1000 + wMs
+        const offsetMs = wordAbsoluteMs - startTimeMs
+
+        // Get the word text: everything after this tag until the next tag or end
+        const afterTag = textContent.slice(wordMatch.index + wordMatch[0].length)
+        const nextTagIndex = afterTag.search(/<\d{1,3}:\d{2}\.\d{2,3}>/)
+        const wordText = nextTagIndex >= 0 ? afterTag.slice(0, nextTagIndex) : afterTag
+
+        if (wordText) {
+          words.push({ word: wordText, offsetMs: Math.max(0, offsetMs) })
+        }
+      }
+
+      // Strip all word tags from the display text
+      const cleanText = hasWordTags
+        ? textContent.replace(/<\d{1,3}:\d{2}\.\d{2,3}>/g, '').trim()
+        : textContent
+
+      if (!cleanText) continue
+
+      lines.push({
+        startTimeMs,
+        text: cleanText,
+        words: hasWordTags && words.length > 0 ? words : undefined,
+      })
     }
 
     lines.sort((a, b) => a.startTimeMs - b.startTimeMs)

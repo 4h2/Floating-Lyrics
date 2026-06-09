@@ -4,7 +4,7 @@
 // It may break at any time, suffer rate limits, or violate ToS.
 // Disabled by default. Enable only in settings for personal use.
 
-import type { LyricsProvider, TrackQuery, Lyrics, SyncedLyricsLine } from '../types/lyrics'
+import type { LyricsProvider, TrackQuery, Lyrics, SyncedLyricsLine, WordTiming } from '../types/lyrics'
 
 const MXM_BASE = 'https://apic-desktop.musixmatch.com/ws/1.1'
 const TIMEOUT_MS = 6000
@@ -40,10 +40,27 @@ export class MusixmatchUnofficialProvider implements LyricsProvider {
       if (!trackData) return null
 
       const trackId = trackData.track_id
+      const hasRichSync = trackData.has_richsync === 1
       const hasSubtitles = trackData.has_subtitles === 1
       const hasLyrics = trackData.has_lyrics === 1
 
-      // Step 2: Try synced lyrics (subtitles)
+      // Step 2: Try RichSync (word-by-word karaoke) first
+      if (hasRichSync) {
+        const richLines = await this.getRichSync(token, trackId)
+        if (richLines && richLines.length > 0) {
+          console.log(`[${this.name}] RichSync (word-by-word) found`)
+          return {
+            type: 'synced',
+            trackTitle: query.title,
+            artistName: query.artist,
+            albumName: query.album,
+            durationMs: query.durationMs,
+            lines: richLines
+          }
+        }
+      }
+
+      // Step 3: Try synced lyrics (line-level subtitles)
       if (hasSubtitles) {
         const synced = await this.getSubtitles(token, trackId)
         if (synced && synced.length > 0) {
@@ -58,7 +75,7 @@ export class MusixmatchUnofficialProvider implements LyricsProvider {
         }
       }
 
-      // Step 3: Fallback to plain lyrics
+      // Step 4: Fallback to plain lyrics
       if (hasLyrics) {
         const plain = await this.getLyrics(token, trackId)
         if (plain) {
@@ -111,7 +128,7 @@ export class MusixmatchUnofficialProvider implements LyricsProvider {
   private async matchTrack(
     token: string,
     query: TrackQuery
-  ): Promise<{ track_id: number; has_subtitles: number; has_lyrics: number } | null> {
+  ): Promise<{ track_id: number; has_richsync: number; has_subtitles: number; has_lyrics: number } | null> {
     try {
       const params = new URLSearchParams({
         format: 'json',
@@ -134,6 +151,7 @@ export class MusixmatchUnofficialProvider implements LyricsProvider {
       if (track) {
         return {
           track_id: track.track_id,
+          has_richsync: track.has_richsync || 0,
           has_subtitles: track.has_subtitles,
           has_lyrics: track.has_lyrics
         }
@@ -143,6 +161,74 @@ export class MusixmatchUnofficialProvider implements LyricsProvider {
     }
 
     return null
+  }
+
+  // ─── RichSync (Word-by-Word Karaoke) ──────────────────────────────────
+
+  private async getRichSync(token: string, trackId: number): Promise<SyncedLyricsLine[] | null> {
+    try {
+      const params = new URLSearchParams({
+        format: 'json',
+        track_id: String(trackId),
+        usertoken: token,
+        app_id: 'web-desktop-app-v1.0',
+      })
+
+      const response = await this.fetchWithTimeout(
+        `${MXM_BASE}/track.richsync.get?${params.toString()}`
+      )
+      const data = await response.json()
+      const richsyncBody = data?.message?.body?.richsync?.richsync_body
+
+      if (!richsyncBody) return null
+
+      return this.parseRichSync(richsyncBody)
+    } catch (e) {
+      console.error(`[${this.name}] RichSync fetch failed:`, e)
+      return null
+    }
+  }
+
+  /**
+   * Parse Musixmatch RichSync JSON body.
+   * Format: [{ ts: 0.09, te: 2.05, l: [{ c: "Hello", o: 0 }, { c: " world", o: 0.5 }], x: "Hello world" }]
+   */
+  private parseRichSync(body: string): SyncedLyricsLine[] {
+    try {
+      const parsed = JSON.parse(body) as Array<{
+        ts: number   // line start (seconds)
+        te: number   // line end (seconds)
+        l: Array<{ c: string; o: number }>  // words: content + offset (seconds)
+        x: string    // full line text
+      }>
+
+      if (!Array.isArray(parsed)) return []
+
+      const lines: SyncedLyricsLine[] = []
+      for (const entry of parsed) {
+        const text = entry.x?.trim()
+        if (!text) continue
+
+        const words: WordTiming[] = (entry.l || [])
+          .filter(w => w.c && w.c.trim())
+          .map(w => ({
+            word: w.c,
+            offsetMs: Math.round(w.o * 1000),
+          }))
+
+        lines.push({
+          startTimeMs: Math.round(entry.ts * 1000),
+          endTimeMs: Math.round(entry.te * 1000),
+          text,
+          words: words.length > 0 ? words : undefined,
+        })
+      }
+
+      return lines
+    } catch (e) {
+      console.error(`[${this.name}] RichSync parse failed:`, e)
+      return []
+    }
   }
 
   // ─── Synced Lyrics (Subtitles) ───────────────────────────────────────

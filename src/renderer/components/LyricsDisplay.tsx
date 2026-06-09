@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useLyricsStore } from '../stores/lyricsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useShallow } from 'zustand/react/shallow'
+import type { WordTiming } from '../types/lyrics'
 
 /**
  * LyricsDisplay — Apple Music-inspired synced lyrics.
@@ -150,6 +151,14 @@ interface LyricLineProps {
   fontSize: number
   glowColor: string
   seekable?: boolean
+  /** Word-level timing data (if available from richsync) */
+  words?: WordTiming[]
+  /** Index of the word currently being sung (-1 if N/A) */
+  activeWordIndex?: number
+  /** Progress within the active word (0..1) */
+  wordProgress?: number
+  /** Whether karaoke mode is enabled */
+  karaokeEnabled?: boolean
 }
 
 const LyricLine = React.memo<LyricLineProps>(({
@@ -160,9 +169,14 @@ const LyricLine = React.memo<LyricLineProps>(({
   fontSize,
   glowColor,
   seekable,
+  words,
+  activeWordIndex = -1,
+  wordProgress = 0,
+  karaokeEnabled = false,
 }) => {
   const v = computeLineVisuals(index, currentIndex, lineProgress)
   const isCurrent = index === currentIndex
+  const hasKaraoke = karaokeEnabled && isCurrent && words && words.length > 0
 
   return (
     <motion.div
@@ -180,15 +194,47 @@ const LyricLine = React.memo<LyricLineProps>(({
         filter: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] },
       }}
       style={{
-        // FIXED: fontSize is CONSTANT for all lines — no reflow!
-        // The active line uses transform: scale() for emphasis instead.
         fontSize,
         fontWeight: 700,
         textShadow: buildGlowShadow(v.glowIntensity, glowColor),
         willChange: isCurrent ? 'transform, opacity, filter' : 'auto',
       }}
     >
-      {text}
+      {hasKaraoke ? (
+        <span className="karaoke-line">
+          {words!.map((w, wi) => {
+            // Determine the fill state for this word
+            let fill = 0 // 0 = not sung, 1 = fully sung
+            if (wi < activeWordIndex) {
+              fill = 1 // Already sung
+            } else if (wi === activeWordIndex) {
+              fill = wordProgress // Partially sung
+            }
+            // else fill = 0 (not yet sung)
+
+            return (
+              <span
+                key={wi}
+                className="karaoke-word"
+                style={{
+                  // Use CSS gradient to create the wipe/fill effect
+                  backgroundImage: fill > 0
+                    ? `linear-gradient(90deg, var(--text-primary) ${fill * 100}%, var(--text-secondary) ${fill * 100}%)`
+                    : undefined,
+                  WebkitBackgroundClip: fill > 0 ? 'text' : undefined,
+                  WebkitTextFillColor: fill > 0 ? 'transparent' : undefined,
+                  color: fill <= 0 ? 'var(--text-secondary)' : undefined,
+                  transition: fill > 0 ? 'none' : 'color 0.15s ease',
+                }}
+              >
+                {w.word}
+              </span>
+            )
+          })}
+        </span>
+      ) : (
+        text
+      )}
     </motion.div>
   )
 })
@@ -202,7 +248,7 @@ interface LyricsDisplayProps {
 }
 
 export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
-  const { lyrics, status, errorMessage, currentIndex, lineProgress, isInterlude } = useLyricsStore(
+  const { lyrics, status, errorMessage, currentIndex, lineProgress, isInterlude, activeWordIndex, wordProgress } = useLyricsStore(
     useShallow((s) => ({
       lyrics: s.lyrics,
       status: s.status,
@@ -210,9 +256,12 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
       currentIndex: s.syncState?.currentIndex ?? -1,
       lineProgress: s.syncState?.lineProgress ?? 0,
       isInterlude: s.syncState?.isInterlude ?? false,
+      activeWordIndex: s.syncState?.activeWordIndex ?? -1,
+      wordProgress: s.syncState?.wordProgress ?? 0,
     }))
   )
   const fontSize = useSettingsStore(s => s.fontSize)
+  const karaokeEnabled = useSettingsStore(s => s.karaokeEnabled)
   const containerRef = useRef<HTMLDivElement>(null)
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const springScrollTo = useSpringScroll(containerRef)
@@ -418,6 +467,10 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({ onSeek }) => {
                 fontSize={fontSize}
                 glowColor={glowColor}
                 seekable={!!onSeek}
+                words={line.words}
+                activeWordIndex={i === currentIndex ? activeWordIndex : -1}
+                wordProgress={i === currentIndex ? wordProgress : 0}
+                karaokeEnabled={karaokeEnabled}
               />
 
               {/* Interlude indicator — shown after the current line during instrumental gaps */}

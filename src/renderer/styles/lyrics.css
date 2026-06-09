@@ -96,6 +96,21 @@
   z-index: 1;
 }
 
+/* ─── Karaoke Word-by-Word ───────────────────────────────────────────────── */
+
+.karaoke-line {
+  display: inline;
+}
+
+.karaoke-word {
+  display: inline;
+  /* background-clip: text creates the gradient fill wipe effect */
+  -webkit-background-clip: text;
+  background-clip: text;
+  /* Smooth transition when word switches from "not yet sung" state */
+  transition: color 0.1s ease;
+}
+
 /* ─── Sync Button ────────────────────────────────────────────────────────── */
 /* Appears at the bottom when user scrolls away from current line */
 

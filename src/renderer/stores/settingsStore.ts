@@ -16,6 +16,7 @@ export interface AppSettings {
   albumArtPresence: number
   showProgressBar: boolean
   showPlaybackControls: boolean
+  karaokeEnabled: boolean
 }
 
 const defaults: AppSettings = {
@@ -30,6 +31,7 @@ const defaults: AppSettings = {
   albumArtPresence: 70,
   showProgressBar: true,
   showPlaybackControls: true,
+  karaokeEnabled: true,
 }
 
 interface SettingsState extends AppSettings {
