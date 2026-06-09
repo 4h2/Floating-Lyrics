@@ -338,7 +338,7 @@ export const App: React.FC = () => {
   // ─── Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${mode === 'fullscreen' ? 'app-container-fullscreen' : ''}`}>
       {/* Background blur layer — crossfade on song change */}
       <div className="app-bg">
         <AnimatePresence mode="sync">

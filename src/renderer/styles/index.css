@@ -125,6 +125,11 @@ body {
     background 1.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Fullscreen: fill edge-to-edge, no rounded corners */
+.app-container-fullscreen {
+  border-radius: 0;
+}
+
 /* Background layer for album art blur */
 .app-bg {
   position: absolute;
