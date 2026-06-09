@@ -216,8 +216,20 @@ export const App: React.FC = () => {
     setLyricsStatus('loading')
     syncEngine.current.setLyrics(null)
 
-    // Fetch queue (non-blocking)
-    playbackService.current.getQueue().then(q => setQueue(q)).catch(() => {})
+    // Fetch queue (non-blocking) and prefetch lyrics for next track
+    playbackService.current.getQueue().then(q => {
+      setQueue(q)
+      // Prefetch lyrics for the next track so they're cached before it plays
+      if (q.length > 0) {
+        const next = q[0]
+        lyricsService.current.search({
+          title: next.title,
+          artist: next.artistsList?.[0] || next.artist,
+          album: next.album,
+          durationMs: next.durationMs,
+        }).catch(() => {}) // Silent — just warming the cache
+      }
+    }).catch(() => {})
 
     try {
       const result = await lyricsService.current.search({

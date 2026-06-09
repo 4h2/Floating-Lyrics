@@ -8,6 +8,8 @@ const SPOTIFY_API_BASE = 'https://api.spotify.com/v1'
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token'
 const POLL_INTERVAL_MS = 3000
 const POLL_INTERVAL_PAUSED_MS = 5000
+const POLL_INTERVAL_END_MS = 1000  // Faster polling near end of track
+const END_OF_TRACK_BUFFER_MS = 5000 // Start fast polling this many ms before track end
 
 export class SpotifyPlaybackService {
   private tokens: SpotifyTokens | null = null
@@ -16,6 +18,7 @@ export class SpotifyPlaybackService {
   private lastTrackId: string | null = null
   private lastIsPlaying: boolean | null = null
   private refreshPromise: Promise<void> | null = null
+  private endOfTrackTimer: ReturnType<typeof setTimeout> | null = null
 
   // Callbacks
   public onPlaybackUpdate: ((info: PlaybackInfo) => void) | null = null
@@ -35,6 +38,10 @@ export class SpotifyPlaybackService {
     this.tokens = null
     this.lastTrackId = null
     this.lastIsPlaying = null
+    if (this.endOfTrackTimer) {
+      clearTimeout(this.endOfTrackTimer)
+      this.endOfTrackTimer = null
+    }
   }
 
   /**
@@ -276,9 +283,43 @@ export class SpotifyPlaybackService {
 
       this.onPlaybackUpdate?.(playbackInfo)
 
-      // Adjust polling rate only when play state changes (not every tick)
+      // ─── Smart polling rate ────────────────────────────────────
       const isPlayingNow = state.is_playing
-      if (isPlayingNow !== this.lastIsPlaying) {
+      const durationMs = state.item?.duration_ms || 0
+      const progressMs = state.progress_ms || 0
+      const remainingMs = durationMs - progressMs
+
+      // Clear any existing end-of-track timer
+      if (this.endOfTrackTimer) {
+        clearTimeout(this.endOfTrackTimer)
+        this.endOfTrackTimer = null
+      }
+
+      if (isPlayingNow && durationMs > 0) {
+        // Schedule a precise poll for when the track should end
+        if (remainingMs > 0 && remainingMs < 30000) {
+          // Add 300ms buffer for API propagation delay
+          this.endOfTrackTimer = setTimeout(() => this.forcePoll(), remainingMs + 300)
+        }
+
+        // Near end of track: boost poll rate to 1s for snappy transitions
+        if (remainingMs <= END_OF_TRACK_BUFFER_MS) {
+          if (this.pollTimer) {
+            clearInterval(this.pollTimer)
+            this.pollTimer = setInterval(() => this.poll(), POLL_INTERVAL_END_MS)
+          }
+          this.lastIsPlaying = isPlayingNow
+        } else if (isPlayingNow !== this.lastIsPlaying) {
+          // Normal play state change — adjust interval
+          this.lastIsPlaying = isPlayingNow
+          if (this.pollTimer) {
+            clearInterval(this.pollTimer)
+            const interval = isPlayingNow ? POLL_INTERVAL_MS : POLL_INTERVAL_PAUSED_MS
+            this.pollTimer = setInterval(() => this.poll(), interval)
+          }
+        }
+      } else if (isPlayingNow !== this.lastIsPlaying) {
+        // Paused/stopped — adjust to slow poll
         this.lastIsPlaying = isPlayingNow
         if (this.pollTimer) {
           clearInterval(this.pollTimer)

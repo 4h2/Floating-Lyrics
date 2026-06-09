@@ -6,7 +6,7 @@
 import type { LyricsProvider, TrackQuery, Lyrics, SyncedLyricsLine } from '../types/lyrics'
 
 const LRCLIB_BASE = 'https://lrclib.net/api'
-const TIMEOUT_MS = 8000
+const TIMEOUT_MS = 4000
 const USER_AGENT = 'FloatingLyrics/1.0.0 (https://github.com/user/floating-lyrics)'
 
 interface LrcLibResponse {
