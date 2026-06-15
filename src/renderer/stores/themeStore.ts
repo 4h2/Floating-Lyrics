@@ -124,6 +124,12 @@ async function extractColors(imageUrl: string): Promise<ThemeColors> {
         const imageData = ctx.getImageData(0, 0, size, size).data
         const colors = getTopColors(imageData)
 
+        // If no sufficiently chromatic colors found, use neutral theme
+        if (colors.length === 0) {
+          resolve(darkTheme)
+          return
+        }
+
         const dominant = colors[0]
         const secondary = colors[1] || colors[0]
 
@@ -165,32 +171,84 @@ async function extractColors(imageUrl: string): Promise<ThemeColors> {
   })
 }
 
+/**
+ * Extract the top colors from image pixel data.
+ *
+ * Key improvements over naive "most frequent" approach:
+ * 1. Saturation gating: pixels with saturation < 0.12 are treated as grey/neutral
+ *    and excluded from the chromatic palette. This prevents B&W albums from
+ *    producing random glow colors from JPEG artifacts.
+ * 2. Vibrance-weighted scoring: each color's score = count × saturation².
+ *    This means a small bright-red region beats a large grey region.
+ * 3. Hue diversity: after picking the dominant color, the secondary must have
+ *    a different hue (>30° apart) or higher saturation to avoid monotone themes.
+ * 4. Monochrome fallback: if no chromatic colors pass the gate, returns empty
+ *    so the caller can apply a neutral/default theme.
+ */
 function getTopColors(data: Uint8ClampedArray): number[][] {
-  const colorMap = new Map<string, { count: number; r: number; g: number; b: number }>()
+  const colorMap = new Map<string, { count: number; r: number; g: number; b: number; sat: number }>()
 
   for (let i = 0; i < data.length; i += 4) {
-    const r = Math.round(data[i] / 16) * 16
-    const g = Math.round(data[i + 1] / 16) * 16
-    const b = Math.round(data[i + 2] / 16) * 16
-    const key = `${r},${g},${b}`
+    const r = data[i]
+    const g = data[i + 1]
+    const b = data[i + 2]
+
+    // Brightness gate: skip near-black and near-white
+    const brightness = (r + g + b) / 3
+    if (brightness < 25 || brightness > 235) continue
+
+    // Compute saturation early to gate grey pixels
+    const hsl = rgbToHsl(r, g, b)
+    const sat = hsl[1]
+
+    // Skip low-saturation (grey/neutral) pixels entirely
+    if (sat < 0.12) continue
+
+    // Quantize for bucketing (step of 12 for finer granularity)
+    const qr = Math.round(r / 12) * 12
+    const qg = Math.round(g / 12) * 12
+    const qb = Math.round(b / 12) * 12
+    const key = `${qr},${qg},${qb}`
 
     const existing = colorMap.get(key)
     if (existing) {
       existing.count++
+      // Track the max saturation seen in this bucket
+      if (sat > existing.sat) existing.sat = sat
     } else {
-      colorMap.set(key, { count: 1, r, g, b })
+      colorMap.set(key, { count: 1, r: qr, g: qg, b: qb, sat })
     }
   }
 
-  const sorted = [...colorMap.values()]
-    .filter(c => {
-      // Skip very dark and very light colors
-      const brightness = (c.r + c.g + c.b) / 3
-      return brightness > 20 && brightness < 240
-    })
-    .sort((a, b) => b.count - a.count)
+  // Score each color by count × saturation² (vibrance-weighted)
+  const scored = [...colorMap.values()]
+    .map(c => ({
+      ...c,
+      score: c.count * c.sat * c.sat,
+    }))
+    .sort((a, b) => b.score - a.score)
 
-  return sorted.slice(0, 5).map(c => [c.r, c.g, c.b])
+  if (scored.length === 0) return [] // Monochrome album
+
+  const result: number[][] = [[scored[0].r, scored[0].g, scored[0].b]]
+
+  // Pick a secondary color with hue diversity (>30° apart from dominant)
+  const dominantHue = rgbToHsl(scored[0].r, scored[0].g, scored[0].b)[0]
+  for (let i = 1; i < scored.length && result.length < 2; i++) {
+    const candidateHue = rgbToHsl(scored[i].r, scored[i].g, scored[i].b)[0]
+    const hueDiff = Math.min(Math.abs(candidateHue - dominantHue), 360 - Math.abs(candidateHue - dominantHue))
+    // Accept if hue is sufficiently different, or if it has very high saturation
+    if (hueDiff > 30 || scored[i].sat > 0.6) {
+      result.push([scored[i].r, scored[i].g, scored[i].b])
+    }
+  }
+
+  // If no diverse secondary found, just use the second highest scored
+  if (result.length < 2 && scored.length > 1) {
+    result.push([scored[1].r, scored[1].g, scored[1].b])
+  }
+
+  return result
 }
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
