@@ -1,6 +1,6 @@
 {
   "name": "floating-lyrics",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A premium floating lyrics miniplayer for Spotify on Windows",
   "main": "./out/main/index.js",
   "author": "arthu",
