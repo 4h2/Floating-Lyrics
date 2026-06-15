@@ -25,7 +25,9 @@ const defaults: AppSettings = {
   fontSize: 28,
   lyricsOffsetMs: 0,
   theme: 'auto',
-  musixmatchEnabled: false,
+  // Enabled by default so karaoke (RichSync word-level timing) works out of the
+  // box. Musixmatch is an unofficial API — see provider notes / ToS caveats.
+  musixmatchEnabled: true,
   lrcFolderPath: '',
   mode: 'expanded',
   albumArtPresence: 70,

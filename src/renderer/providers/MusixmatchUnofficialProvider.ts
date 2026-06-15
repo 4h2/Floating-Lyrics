@@ -209,8 +209,10 @@ export class MusixmatchUnofficialProvider implements LyricsProvider {
         const text = entry.x?.trim()
         if (!text) continue
 
+        // Keep whitespace-only tokens (they carry the spacing between words);
+        // only drop genuinely empty entries.
         const words: WordTiming[] = (entry.l || [])
-          .filter(w => w.c && w.c.trim())
+          .filter(w => w.c)
           .map(w => ({
             word: w.c,
             offsetMs: Math.round(w.o * 1000),

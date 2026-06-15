@@ -100,15 +100,39 @@
 
 .karaoke-line {
   display: inline;
+  /* Glow on the whole line, identical to buildGlowShadow() in standard mode:
+     same 4 radii, same --glow color, same breathing intensity (--ki).
+     filter: drop-shadow works on painted pixels so it survives
+     background-clip: text unlike text-shadow. */
+  filter:
+    drop-shadow(0 0 calc(8px  * var(--ki, 0)) var(--glow))
+    drop-shadow(0 0 calc(25px * var(--ki, 0)) var(--glow))
+    drop-shadow(0 0 calc(60px * var(--ki, 0)) var(--glow))
+    drop-shadow(0 0 calc(100px * var(--ki, 0)) var(--glow));
+  will-change: filter;
 }
 
 .karaoke-word {
-  display: inline;
-  /* background-clip: text creates the gradient fill wipe effect */
+  display: inline-block;
+  /* Preserve the spaces that carry word separation (esp. richsync tokens). */
+  white-space: pre;
+
+  /* Block the text-shadow inherited from the parent motion.div. Without this,
+     the parent's 4-layer glow is applied here AND the .karaoke-line drop-shadow
+     applies it again, doubling the intensity and drowning the white with accent. */
+  text-shadow: none;
+
+  /* Left-to-right wipe: bright primary up to --fill, dim secondary after.
+     --fill is updated per-frame by the sync engine. */
+  background-image: linear-gradient(
+    90deg,
+    var(--text-primary) var(--fill, 0%),
+    var(--text-secondary) var(--fill, 0%)
+  );
   -webkit-background-clip: text;
   background-clip: text;
-  /* Smooth transition when word switches from "not yet sung" state */
-  transition: color 0.1s ease;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 /* ─── Sync Button ────────────────────────────────────────────────────────── */

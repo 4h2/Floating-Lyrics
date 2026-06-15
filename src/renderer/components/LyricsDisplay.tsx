@@ -201,31 +201,21 @@ const LyricLine = React.memo<LyricLineProps>(({
       }}
     >
       {hasKaraoke ? (
-        <span className="karaoke-line">
+        // --ki mirrors the line glow intensity so the karaoke drop-shadow
+        // uses the exact same value (and breathing animation) as the standard
+        // mode text-shadow, just applied via filter so it works with
+        // background-clip: text.
+        <span className="karaoke-line" style={{ ['--ki' as string]: v.glowIntensity.toFixed(3) }}>
           {words!.map((w, wi) => {
-            // Determine the fill state for this word
-            let fill = 0 // 0 = not sung, 1 = fully sung
-            if (wi < activeWordIndex) {
-              fill = 1 // Already sung
-            } else if (wi === activeWordIndex) {
-              fill = wordProgress // Partially sung
-            }
-            // else fill = 0 (not yet sung)
+            let fill = 0
+            if (wi < activeWordIndex) fill = 1
+            else if (wi === activeWordIndex) fill = wordProgress
 
             return (
               <span
                 key={wi}
                 className="karaoke-word"
-                style={{
-                  // Use CSS gradient to create the wipe/fill effect
-                  backgroundImage: fill > 0
-                    ? `linear-gradient(90deg, var(--text-primary) ${fill * 100}%, var(--text-secondary) ${fill * 100}%)`
-                    : undefined,
-                  WebkitBackgroundClip: fill > 0 ? 'text' : undefined,
-                  WebkitTextFillColor: fill > 0 ? 'transparent' : undefined,
-                  color: fill <= 0 ? 'var(--text-secondary)' : undefined,
-                  transition: fill > 0 ? 'none' : 'color 0.15s ease',
-                }}
+                style={{ ['--fill' as string]: `${fill * 100}%` }}
               >
                 {w.word}
               </span>

@@ -4,13 +4,29 @@
 
 import type { LyricsProvider, TrackQuery, Lyrics } from '../types/lyrics'
 
+/** True if a result carries word-level timing on at least one line (karaoke-ready). */
+function hasWordTiming(lyrics: Lyrics): boolean {
+  return lyrics.type === 'synced' && lyrics.lines.some(l => l.words && l.words.length > 0)
+}
+
 export class LyricsProviderService {
   private providers: LyricsProvider[] = []
   private cache = new Map<string, Lyrics | null>()
   private pendingRequests = new Map<string, Promise<Lyrics | null>>()
+  /**
+   * When true (karaoke mode), a line-level synced result does NOT short-circuit
+   * the search — we keep probing later providers (e.g. Musixmatch RichSync) for
+   * word-level timing and prefer that. Trades extra network calls for the karaoke
+   * visual, which is the priority for this app.
+   */
+  private preferWordTiming: boolean = false
 
   setProviders(providers: LyricsProvider[]): void {
     this.providers = providers
+  }
+
+  setPreferWordTiming(value: boolean): void {
+    this.preferWordTiming = value
   }
 
   /**
@@ -20,7 +36,7 @@ export class LyricsProviderService {
   async search(query: TrackQuery): Promise<Lyrics | null> {
     const cacheKey = this.getCacheKey(query)
 
-    // Check cache first
+    // Check cache first.
     if (this.cache.has(cacheKey)) {
       console.log('[LyricsService] Cache hit:', cacheKey)
       return this.cache.get(cacheKey) || null
@@ -43,6 +59,8 @@ export class LyricsProviderService {
 
   private async doSearch(query: TrackQuery, cacheKey: string): Promise<Lyrics | null> {
     let plainFallback: Lyrics | null = null
+    // A line-level synced result we'll fall back to if no word-level one shows up.
+    let syncedFallback: Lyrics | null = null
 
     for (const provider of this.providers) {
       if (!provider.isEnabled()) {
@@ -55,11 +73,29 @@ export class LyricsProviderService {
         const result = await provider.search(query)
 
         if (result) {
-          // If we got synced lyrics, use them immediately
           if (result.type === 'synced') {
-            console.log(`[LyricsService] Synced lyrics found via ${provider.name}`)
-            this.cache.set(cacheKey, result)
-            return result
+            const hasWords = hasWordTiming(result)
+
+            // Word-level (karaoke) timing always wins immediately.
+            if (hasWords) {
+              console.log(`[LyricsService] Word-level synced lyrics found via ${provider.name}`)
+              this.cache.set(cacheKey, result)
+              return result
+            }
+
+            // Line-level synced: in karaoke mode keep probing later providers
+            // (e.g. Musixmatch RichSync) for word timing; otherwise use it now.
+            if (!this.preferWordTiming) {
+              console.log(`[LyricsService] Synced lyrics found via ${provider.name}`)
+              this.cache.set(cacheKey, result)
+              return result
+            }
+
+            if (!syncedFallback) {
+              console.log(`[LyricsService] Line-level synced via ${provider.name}, continuing search for word-level`)
+              syncedFallback = result
+            }
+            continue
           }
 
           // Store plain lyrics as fallback, keep searching for synced
@@ -74,15 +110,10 @@ export class LyricsProviderService {
       }
     }
 
-    // No synced lyrics found anywhere — return plain fallback if we have one
-    if (plainFallback) {
-      this.cache.set(cacheKey, plainFallback)
-      return plainFallback
-    }
-
-    // Nothing found at all
-    this.cache.set(cacheKey, null)
-    return null
+    // No word-level result — prefer any line-level synced, then plain.
+    const best = syncedFallback || plainFallback || null
+    this.cache.set(cacheKey, best)
+    return best
   }
 
   clearCache(): void {

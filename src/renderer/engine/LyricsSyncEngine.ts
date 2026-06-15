@@ -5,17 +5,39 @@
 
 import type { SyncedLyrics, SyncedLyricsLine, LyricsSyncState } from '../types/lyrics'
 
+// ─── Clock controller tuning ─────────────────────────────────────────────────
+// The played position comes from one source: the Spotify poll (progress_ms +
+// receivedAt), which jitters by the network latency of each request. Instead of
+// snapping the clock to every poll (precise but stutters word-fills) or ignoring
+// late polls (smooth but drifts), we run a tiny rate-locked controller (mini-PLL):
+// the displayed position stays continuous and we only nudge its *speed* within an
+// imperceptible margin to converge on the reported position.
+
+/** Position error (ms) above which we treat the poll as a seek / track change and snap. */
+const HARD_SNAP_MS = 1000
+/** Convergence window (ms) — error is absorbed over roughly this span (~1 poll interval). */
+const CORRECTION_WINDOW_MS = 3000
+/** Max deviation from 1.0× playback speed while correcting (±5% is invisible in the fill). */
+const MAX_RATE_ADJUST = 0.05
+
 export class LyricsSyncEngine {
   private lyrics: SyncedLyrics | null = null
   private offsetMs: number = 0
   private isPlaying: boolean = false
-  private progressMs: number = 0
-  private lastReceivedAt: number = 0
   private animFrameId: number | null = null
+
+  // ─── Rate-locked playback clock ──────────────────────────────────────
+  // predicted(now) = anchorProgress + (now - anchorTime) * rate
+  private anchorProgress: number = 0
+  private anchorTime: number = 0
+  private rate: number = 1
+  private clockInitialized: boolean = false
 
   // Smart diffing — only emit when state actually changes
   private lastEmittedIndex: number = -2 // -2 = never emitted
   private lastEmittedProgress: number = -1
+  private lastEmittedWordIndex: number = -2
+  private lastEmittedWordProgress: number = -1
   private contextCacheIndex: number = Number.NEGATIVE_INFINITY
   private contextCachePrevious: SyncedLyricsLine[] = []
   private contextCacheNext: SyncedLyricsLine[] = []
@@ -29,19 +51,47 @@ export class LyricsSyncEngine {
     this.lyrics = lyrics
     this.lastEmittedIndex = -2
     this.lastEmittedProgress = -1
+    this.lastEmittedWordIndex = -2
+    this.lastEmittedWordProgress = -1
     this.contextCacheIndex = Number.NEGATIVE_INFINITY
     this.contextCachePrevious = []
     this.contextCacheNext = []
+    // New track → re-snap the clock to the next poll instead of correcting toward it.
+    this.clockInitialized = false
     this.emitState(true)
   }
 
   /**
-   * Update playback position from Spotify API poll
+   * Update playback position from a Spotify API poll.
+   *
+   * Drives the rate-locked clock controller. Rather than snapping to every poll
+   * (which makes word-fills stutter as the network latency jitters the reported
+   * position), we keep the displayed position continuous and only adjust the
+   * clock's speed within ±MAX_RATE_ADJUST to converge on the reported value.
+   * Large errors (seeks, track changes) and play-state transitions snap directly.
    */
-  updateProgress(progressMs: number, isPlaying: boolean): void {
-    this.progressMs = progressMs
+  updateProgress(reportedMs: number, isPlaying: boolean): void {
+    const now = performance.now()
+    const wasPlaying = this.isPlaying
     this.isPlaying = isPlaying
-    this.lastReceivedAt = performance.now()
+
+    const continuousPlayback = isPlaying && wasPlaying && this.clockInitialized
+    const error = continuousPlayback ? reportedMs - this.predictedProgress(now) : 0
+
+    if (!continuousPlayback || Math.abs(error) > HARD_SNAP_MS) {
+      // Hard snap: first poll, pause↔play, paused, seek, or track change.
+      this.anchorProgress = reportedMs
+      this.anchorTime = now
+      this.rate = 1
+      this.clockInitialized = true
+    } else {
+      // Soft correction: re-anchor at the *predicted* position (no jump → C0
+      // continuity) and absorb the small error by nudging the clock speed.
+      this.anchorProgress = this.predictedProgress(now)
+      this.anchorTime = now
+      const adjust = Math.max(-MAX_RATE_ADJUST, Math.min(MAX_RATE_ADJUST, error / CORRECTION_WINDOW_MS))
+      this.rate = 1 + adjust
+    }
 
     if (isPlaying && !this.animFrameId) {
       this.startLoop()
@@ -86,14 +136,18 @@ export class LyricsSyncEngine {
   }
 
   /**
-   * Interpolate current progress based on time elapsed since last API update.
-   * This gives smooth 60fps progress between the 3-second Spotify API polls.
+   * Current playback position from the rate-locked clock.
+   * Smooth 60fps progress between Spotify polls; while paused it stays frozen at
+   * the anchor. The controller in updateProgress keeps this converged on reality.
    */
   private getInterpolatedProgress(): number {
-    if (!this.isPlaying) return this.progressMs
+    if (!this.isPlaying) return this.anchorProgress
+    return this.predictedProgress(performance.now())
+  }
 
-    const elapsed = performance.now() - this.lastReceivedAt
-    return this.progressMs + elapsed
+  /** Predicted position (ms) at time `now` (performance.now): anchor + elapsed × rate. */
+  private predictedProgress(now: number): number {
+    return this.anchorProgress + (now - this.anchorTime) * this.rate
   }
 
   private emitState(force: boolean): void {
@@ -104,11 +158,11 @@ export class LyricsSyncEngine {
 
     const currentProgress = this.getInterpolatedProgress() + this.offsetMs
     const currentIndex = this.findCurrentLineIndex(lines, currentProgress)
+    const currentLine = currentIndex >= 0 ? lines[currentIndex] : null
 
     // Calculate line progress (0..1) for the breathing glow
     let lineProgress = 0
-    if (currentIndex >= 0) {
-      const currentLine = lines[currentIndex]
+    if (currentLine) {
       const lineStart = currentLine.startTimeMs
       const lineEnd = currentLine.endTimeMs || (lines[currentIndex + 1]?.startTimeMs || lineStart + 3000)
       const lineDuration = lineEnd - lineStart
@@ -117,19 +171,50 @@ export class LyricsSyncEngine {
       }
     }
 
+    // ─── Word-level karaoke timing ──────────────────────────────────
+    // Computed before the diff gate so word changes can drive emission on long
+    // lines (where lineProgress barely moves between frames).
+    let activeWordIndex = -1
+    let wordProgress = 0
+
+    if (currentLine?.words && currentLine.words.length > 0) {
+      const lineStart = currentLine.startTimeMs
+      const elapsedInLine = currentProgress - lineStart // ms since line started
+
+      // Find which word we're on (binary search would be overkill for ~10 words)
+      for (let i = currentLine.words.length - 1; i >= 0; i--) {
+        if (elapsedInLine >= currentLine.words[i].offsetMs) {
+          activeWordIndex = i
+          // Calculate progress within this word (0..1)
+          const wordStart = currentLine.words[i].offsetMs
+          const wordEnd = i < currentLine.words.length - 1
+            ? currentLine.words[i + 1].offsetMs
+            : (currentLine.endTimeMs ? currentLine.endTimeMs - lineStart : wordStart + 500)
+          const wordDuration = wordEnd - wordStart
+          if (wordDuration > 0) {
+            wordProgress = Math.max(0, Math.min(1, (elapsedInLine - wordStart) / wordDuration))
+          }
+          break
+        }
+      }
+    }
+
     // Smart diffing: only emit if something changed meaningfully.
     // Keep a very small progress threshold so long lyric lines still feel
-    // continuously animated instead of stepping.
+    // continuously animated instead of stepping. Word state is included so the
+    // karaoke fill keeps advancing even when lineProgress is nearly static.
     if (!force) {
       const indexChanged = currentIndex !== this.lastEmittedIndex
       const progressDelta = Math.abs(lineProgress - this.lastEmittedProgress)
-      if (!indexChanged && progressDelta < 0.001) return
+      const wordIndexChanged = activeWordIndex !== this.lastEmittedWordIndex
+      const wordProgressDelta = Math.abs(wordProgress - this.lastEmittedWordProgress)
+      if (!indexChanged && !wordIndexChanged && progressDelta < 0.001 && wordProgressDelta < 0.001) return
     }
 
     this.lastEmittedIndex = currentIndex
     this.lastEmittedProgress = lineProgress
-
-    const currentLine = currentIndex >= 0 ? lines[currentIndex] : null
+    this.lastEmittedWordIndex = activeWordIndex
+    this.lastEmittedWordProgress = wordProgress
 
     // Detect instrumental interludes (gap > 8s between current line end and next line start)
     let isInterlude = false
@@ -154,32 +239,6 @@ export class LyricsSyncEngine {
       this.contextCacheNext = currentIndex >= 0
         ? lines.slice(currentIndex + 1, currentIndex + 6)
         : lines.slice(0, 5)
-    }
-
-    // ─── Word-level karaoke timing ──────────────────────────────────
-    let activeWordIndex = -1
-    let wordProgress = 0
-
-    if (currentLine?.words && currentLine.words.length > 0) {
-      const lineStart = currentLine.startTimeMs
-      const elapsedInLine = currentProgress - lineStart // ms since line started
-
-      // Find which word we're on (binary search would be overkill for ~10 words)
-      for (let i = currentLine.words.length - 1; i >= 0; i--) {
-        if (elapsedInLine >= currentLine.words[i].offsetMs) {
-          activeWordIndex = i
-          // Calculate progress within this word (0..1)
-          const wordStart = currentLine.words[i].offsetMs
-          const wordEnd = i < currentLine.words.length - 1
-            ? currentLine.words[i + 1].offsetMs
-            : (currentLine.endTimeMs ? currentLine.endTimeMs - lineStart : wordStart + 500)
-          const wordDuration = wordEnd - wordStart
-          if (wordDuration > 0) {
-            wordProgress = Math.max(0, Math.min(1, (elapsedInLine - wordStart) / wordDuration))
-          }
-          break
-        }
-      }
     }
 
     this.onStateChange({

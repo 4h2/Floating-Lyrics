@@ -66,6 +66,7 @@ export const App: React.FC = () => {
   const settingsLoaded = useSettingsStore(s => s.isLoaded)
   const lrcFolderPath = useSettingsStore(s => s.lrcFolderPath)
   const musixmatchEnabled = useSettingsStore(s => s.musixmatchEnabled)
+  const karaokeEnabled = useSettingsStore(s => s.karaokeEnabled)
   const themeMode = useSettingsStore(s => s.theme)
   const lyricsOffsetMs = useSettingsStore(s => s.lyricsOffsetMs)
   const mode = useSettingsStore(s => s.mode)
@@ -101,6 +102,7 @@ export const App: React.FC = () => {
 
     localProvider.current.setFolderPath(lrcFolderPath)
     mxmProvider.current.setEnabled(musixmatchEnabled)
+    lyricsService.current.setPreferWordTiming(karaokeEnabled)
     setThemeMode(themeMode)
 
     lyricsService.current.setProviders([
@@ -109,7 +111,13 @@ export const App: React.FC = () => {
       mxmProvider.current,
       fallbackProvider.current,
     ])
-  }, [settingsLoaded, lrcFolderPath, musixmatchEnabled, themeMode, setThemeMode])
+
+    // Clear the cache whenever karaoke or MXM settings change so the next
+    // search for any track re-runs all providers with the updated preferences.
+    // (Results cached under the old settings may lack word-level timing or
+    // have used the wrong provider order.)
+    lyricsService.current.clearCache()
+  }, [settingsLoaded, lrcFolderPath, musixmatchEnabled, karaokeEnabled, themeMode, setThemeMode])
 
   // Sync engine offset
   useEffect(() => {

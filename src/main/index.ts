@@ -55,7 +55,7 @@ const defaultSettings: AppSettings = {
   fontSize: 28,
   lyricsOffsetMs: 0,
   theme: 'auto',
-  musixmatchEnabled: false,
+  musixmatchEnabled: true,
   lrcFolderPath: '',
   windowBounds: null,
   mode: 'expanded',
